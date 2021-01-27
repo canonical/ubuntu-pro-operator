@@ -1,0 +1,13 @@
+name: ubuntu-advantage
+description: Ubuntu Advantage charm
+summary: This charm enables Ubuntu Advantage (https://ubuntu.com/advantage) subscriptions
+series:
+  - focal
+  - bionic
+  - xenial
+  - trusty
+subordinate: true
+requires:
+  juju-info:
+    interface: juju-info
+    scope: container

@@ -1,0 +1,5 @@
+options:
+  ubuntu-advantage-token:
+    default: ""
+    description: Ubuntu advantage key
+    type: string

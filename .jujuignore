@@ -1,0 +1,6 @@
+/venv
+*.py[cod]
+*.charm
+/build
+.coverage
+__pycache__/
