@@ -38,15 +38,14 @@ class TestCharm(TestCase):
 
     def test_config_changed_no_token(self):
         self.harness.begin()
-        self.harness.charm.on.config_changed.emit()
+        self.harness.update_config({"ubuntu-advantage-token": ""})
         self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
 
     @patch('subprocess.check_output')
     def test_config_changed_already_attached(self, _check_output):
         _check_output.return_value = '{"attached":true}'
-        self.harness.update_config({'ubuntu-advantage-token': 'test-token'})
         self.harness.begin()
-        self.harness.charm.on.config_changed.emit()
+        self.harness.update_config({'ubuntu-advantage-token': 'test-token'})
         self.assertEqual(_check_output.call_count, 1)
         _check_output.assert_called_with(['ubuntu-advantage', 'status', '--format', 'json'])
         self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
@@ -55,9 +54,8 @@ class TestCharm(TestCase):
     @patch('subprocess.check_output')
     def test_config_changed_attach(self, _check_output, _check_call):
         _check_output.return_value = '{"attached":false}'
-        self.harness.update_config({'ubuntu-advantage-token': 'test-token'})
         self.harness.begin()
-        self.harness.charm.on.config_changed.emit()
+        self.harness.update_config({'ubuntu-advantage-token': 'test-token'})
         self.assertEqual(_check_output.call_count, 1)
         _check_output.assert_called_with(['ubuntu-advantage', 'status', '--format', 'json'])
         self.assertEqual(_check_call.call_count, 1)
