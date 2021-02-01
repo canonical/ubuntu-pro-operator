@@ -17,10 +17,9 @@ from ops.model import ActiveStatus, BlockedStatus
 logger = logging.getLogger(__name__)
 
 
-# TODO - this output has fewer details than ubuntu-advantage status --all
 def parse_status():
     """Determine the enabled set of ubuntu-advantage services"""
-    output = subprocess.check_output(["ubuntu-advantage", "status", "--format", "json"])
+    output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"])
     if isinstance(output, bytes):
         output = output.decode("utf-8")
     return json.loads(output)
