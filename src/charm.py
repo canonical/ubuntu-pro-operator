@@ -17,11 +17,26 @@ from ops.model import ActiveStatus, BlockedStatus
 logger = logging.getLogger(__name__)
 
 
-def parse_status():
-    """Determine the enabled set of ubuntu-advantage services"""
-    output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"])
-    if isinstance(output, bytes):
-        output = output.decode("utf-8")
+def install_ppa(ppa):
+    """Install specified ppa"""
+    subprocess.check_call(["add-apt-repository", "--yes", ppa])
+
+
+def remove_ppa(ppa):
+    """Remove specified ppa"""
+    subprocess.check_call(["add-apt-repository", "--remove", "--yes", ppa])
+
+
+def install_package(package):
+    """Install specified apt package (after performing an apt update)"""
+    subprocess.check_call(["apt", "update"])
+    subprocess.check_call(["apt", "install", "--yes", "--quiet", package])
+
+
+def get_status_output():
+    """Return the parsed output from ubuntu-advantage status"""
+    output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"],
+                                     encoding="utf-8")
     return json.loads(output)
 
 
@@ -31,50 +46,68 @@ class UbuntuAdvantageCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self._state.set_default(ppa=None, hashed_token=None)
+        self._state.set_default(hashed_token=None, package_needs_installing=True, ppa=None)
         self.framework.observe(self.on.config_changed, self.config_changed)
 
     def config_changed(self, event):
         """Install and configure ubuntu-advantage tools and attachment"""
         logger.info("Beginning config_changed")
-        ppa = self.config.get("ppa")
-        if not ppa:
-            self.unit.status = BlockedStatus("No ppa configured")
+        self._handle_ppa_state()
+        self._handle_package_state()
+        blocked = self._handle_token_state()
+        if blocked:
             return
+        self._handle_status_state()
+        logger.info("Finished config_changed")
+
+    def _handle_ppa_state(self):
+        """Handle installing/removing ppa based on configuration and state"""
+        ppa = self.config.get("ppa")
         old_ppa = self._state.ppa
-        if old_ppa != ppa:
-            logger.info("Configuring ppa: %s", ppa)
-            subprocess.check_call(["add-apt-repository", "--yes", ppa])
-            subprocess.check_call(["apt", "update"])
-            logger.info("Installing ubuntu-advantage-tools")
-            subprocess.check_call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        if old_ppa and old_ppa != ppa:
+            logger.info("Removing previously installed ppa (%s)", old_ppa)
+            remove_ppa(old_ppa)
+        if ppa and ppa != old_ppa:
+            logger.info("Installing ppa: %s", ppa)
+            install_ppa(ppa)
             self._state.ppa = ppa
-            logger.info("Installed ubuntu-advantage-tools")
+            # If ppa is changed, want to force an install of the package for potential updates
+            self._state.package_needs_installing = True
+
+    def _handle_package_state(self):
+        """Install apt package if necessary"""
+        if self._state.package_needs_installing:
+            logger.info("Installing package ubuntu-advantage-tools")
+            install_package("ubuntu-advantage-tools")
+            self._state.package_needs_installing = False
+
+    def _handle_token_state(self):
+        """Handle subscription attachment and status output based on configuration and state"""
         token = self.config.get("token")
         if not token:
             self.unit.status = BlockedStatus("No token configured")
-            return
+            return True
         hashed_token = hashlib.sha256(token.encode("utf-8")).hexdigest()
-        old_hashed_token = self._state.hashed_token
-        status = parse_status()
-        if status["attached"] and old_hashed_token != hashed_token:
+        status = get_status_output()
+        if status["attached"] and hashed_token != self._state.hashed_token:
             logger.info("Detaching ubuntu-advantage subscription in preparation for reattachment")
             subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
-            status = parse_status()
+            status = get_status_output()
         if not status["attached"]:
             return_code = subprocess.call(["ubuntu-advantage", "attach", token])
             if return_code != 0:
                 self.unit.status = BlockedStatus("Error attaching, possibly an invalid token?")
-                return
+                return True
             self._state.hashed_token = hashed_token
-            status = parse_status()
+
+    def _handle_status_state(self):
+        status = get_status_output()
         services = []
         for service in status["services"]:
             if service["status"] == "enabled":
                 services.append(service["name"])
         message = "attached (" + ",".join(services) + ")"
         self.unit.status = ActiveStatus(message)
-        logger.info("Finished config_changed")
 
 
 if __name__ == "__main__":  # pragma: nocover

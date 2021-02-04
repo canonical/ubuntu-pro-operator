@@ -1,6 +1,6 @@
 options:
   ppa:
-    default: "ppa:ua-client/stable"
+    default: ""
     description: PPA from which to install the ubuntu-advantage-tools package
     type: string
   token:
