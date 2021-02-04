@@ -54,8 +54,8 @@ class UbuntuAdvantageCharm(CharmBase):
         logger.info("Beginning config_changed")
         self._handle_ppa_state()
         self._handle_package_state()
-        blocked = self._handle_token_state()
-        if blocked:
+        self._handle_token_state()
+        if isinstance(self.unit.status, BlockedStatus):
             return
         self._handle_status_state()
         logger.info("Finished config_changed")
@@ -91,7 +91,7 @@ class UbuntuAdvantageCharm(CharmBase):
                 subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
                 self._state.hashed_token = None
             self.unit.status = BlockedStatus("No token configured")
-            return True
+            return
         hashed_token = hashlib.sha256(token.encode("utf-8")).hexdigest()
         status = get_status_output()
         if status["attached"] and hashed_token != old_hashed_token:
@@ -103,7 +103,7 @@ class UbuntuAdvantageCharm(CharmBase):
             return_code = subprocess.call(["ubuntu-advantage", "attach", token])
             if return_code != 0:
                 self.unit.status = BlockedStatus("Error attaching, possibly an invalid token?")
-                return True
+                return
             self._state.hashed_token = hashed_token
 
     def _handle_status_state(self):
