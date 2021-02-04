@@ -12,7 +12,7 @@ from ops.testing import Harness
 from charm import UbuntuAdvantageCharm
 
 
-STATUS_SUCCESS = json.dumps(
+STATUS_ATTACHED = json.dumps(
     {
         "attached": True,
         "services": [
@@ -27,6 +27,27 @@ STATUS_SUCCESS = json.dumps(
             {
                 "name": "livepatch",
                 "status": "enabled"
+            }
+        ]
+    }
+)
+
+
+STATUS_DETACHED = json.dumps(
+    {
+        "attached": False,
+        "services": [
+            {
+                "name": "esm-apps",
+                "available": "yes"
+            },
+            {
+                "name": "esm-infra",
+                "available": "yes"
+            },
+            {
+                "name": "livepatch",
+                "available": "yes"
             }
         ]
     }
@@ -134,8 +155,8 @@ class TestCharm(TestCase):
     @patch("subprocess.check_call")
     def test_config_changed_token_unattached(self, _check_call, _check_output, _call):
         _check_output.side_effect = [
-            '{"attached":false}',
-            STATUS_SUCCESS
+            STATUS_DETACHED,
+            STATUS_ATTACHED
         ]
         _call.return_value = 0
         self.harness.update_config({"token": "test-token"})
@@ -154,8 +175,8 @@ class TestCharm(TestCase):
     @patch("subprocess.check_call")
     def test_config_changed_token_reattach(self, _check_call, _check_output, _call):
         _check_output.side_effect = [
-            '{"attached":false}',
-            STATUS_SUCCESS
+            STATUS_DETACHED,
+            STATUS_ATTACHED
         ]
         _call.return_value = 0
         self.harness.update_config({"token": "test-token"})
@@ -171,9 +192,9 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm._state.hashed_token,
                          "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
         _check_output.side_effect = [
-            STATUS_SUCCESS,
-            '{"attached":false}',
-            STATUS_SUCCESS
+            STATUS_ATTACHED,
+            STATUS_DETACHED,
+            STATUS_ATTACHED
         ]
         _call.reset_mock()
         _check_call.reset_mock()
@@ -197,10 +218,48 @@ class TestCharm(TestCase):
     @patch("subprocess.check_call")
     def test_config_changed_attach_failure(self, _check_call, _check_output, _call):
         _check_output.side_effect = [
-            '{"attached":false}'
+            STATUS_DETACHED
         ]
         _call.return_value = 1
         self.harness.update_config({"token": "test-token"})
         self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
         self.assertEqual(self.harness.model.unit.status.message,
                          "Error attaching, possibly an invalid token?")
+
+    @patch("subprocess.call")
+    @patch("subprocess.check_output")
+    @patch("subprocess.check_call")
+    def test_config_changed_token_detach(self, _check_call, _check_output, _call):
+        _check_output.side_effect = [
+            STATUS_DETACHED,
+            STATUS_ATTACHED
+        ]
+        _call.return_value = 0
+        self.harness.update_config({"token": "test-token"})
+        self.assertEqual(_check_call.call_count, 2)
+        _check_call.assert_has_calls([
+            call(["apt", "update"]),
+            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        ])
+        self.assertEqual(_call.call_count, 1)
+        _call.assert_has_calls([
+            call(["ubuntu-advantage", "attach", "test-token"])
+        ])
+        self.assertEqual(self.harness.charm._state.hashed_token,
+                         "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
+        _check_output.side_effect = [
+            STATUS_ATTACHED,
+            STATUS_DETACHED,
+            STATUS_DETACHED
+        ]
+        _call.reset_mock()
+        _check_call.reset_mock()
+        self.harness.update_config({"token": ""})
+        self.assertEqual(_check_call.call_count, 1)
+        _check_call.assert_has_calls([
+            call(["ubuntu-advantage", "detach", "--assume-yes"])
+        ])
+        self.assertEqual(_call.call_count, 0)
+        self.assertIsNone(self.harness.charm._state.hashed_token)
+        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
+        self.assertEqual(self.harness.model.unit.status.message, "No token configured")

@@ -84,14 +84,20 @@ class UbuntuAdvantageCharm(CharmBase):
     def _handle_token_state(self):
         """Handle subscription attachment and status output based on configuration and state"""
         token = self.config.get("token")
+        old_hashed_token = self._state.hashed_token
         if not token:
+            if old_hashed_token:
+                logger.info("Detaching ubuntu-advantage subscription")
+                subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
+                self._state.hashed_token = None
             self.unit.status = BlockedStatus("No token configured")
             return True
         hashed_token = hashlib.sha256(token.encode("utf-8")).hexdigest()
         status = get_status_output()
-        if status["attached"] and hashed_token != self._state.hashed_token:
+        if status["attached"] and hashed_token != old_hashed_token:
             logger.info("Detaching ubuntu-advantage subscription in preparation for reattachment")
             subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
+            self._state.hashed_token = None
             status = get_status_output()
         if not status["attached"]:
             return_code = subprocess.call(["ubuntu-advantage", "attach", token])
@@ -101,11 +107,12 @@ class UbuntuAdvantageCharm(CharmBase):
             self._state.hashed_token = hashed_token
 
     def _handle_status_state(self):
+        """Parse status output to determine which services are active"""
         status = get_status_output()
         services = []
-        for service in status["services"]:
-            if service["status"] == "enabled":
-                services.append(service["name"])
+        for service in status.get("services"):
+            if service.get("status") == "enabled":
+                services.append(service.get("name"))
         message = "attached (" + ",".join(services) + ")"
         self.unit.status = ActiveStatus(message)
 
