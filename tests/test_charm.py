@@ -111,12 +111,10 @@ class TestCharm(TestCase):
         ])
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
+        _check_call.reset_mock()
         self.harness.update_config({"ppa": "ppa:different-client/unstable"})
-        self.assertEqual(_check_call.call_count, 7)
+        self.assertEqual(_check_call.call_count, 4)
         _check_call.assert_has_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"]),
             call(["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"]),
             call(["add-apt-repository", "--yes", "ppa:different-client/unstable"]),
             call(["apt", "update"]),
