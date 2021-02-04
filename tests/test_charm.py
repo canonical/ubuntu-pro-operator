@@ -149,7 +149,6 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.model.unit.status.message,
                          "attached (esm-apps,esm-infra,livepatch)")
 
-    # TODO - here
     @patch("subprocess.call")
     @patch("subprocess.check_output")
     @patch("subprocess.check_call")
