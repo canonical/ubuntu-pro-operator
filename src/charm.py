@@ -35,8 +35,10 @@ def install_package(package):
 
 def get_status_output():
     """Return the parsed output from ubuntu-advantage status"""
-    output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"],
-                                     encoding="utf-8")
+    output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"])
+    # handle different return type from xenial
+    if isinstance(output, bytes):
+        output = output.decode("utf-8")
     return json.loads(output)
 
 

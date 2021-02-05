@@ -261,3 +261,17 @@ class TestCharm(TestCase):
         self.assertIsNone(self.harness.charm._state.hashed_token)
         self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
         self.assertEqual(self.harness.model.unit.status.message, "No token configured")
+
+    @patch("subprocess.call")
+    @patch("subprocess.check_output")
+    @patch("subprocess.check_call")
+    def test_config_changed_check_output_returns_bytes(self, _check_call, _check_output, _call):
+        _check_output.side_effect = [
+            bytes(STATUS_DETACHED, "utf-8"),
+            bytes(STATUS_ATTACHED, "utf-8")
+        ]
+        _call.return_value = 0
+        self.harness.update_config({"token": "test-token"})
+        self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
+        self.assertEqual(self.harness.model.unit.status.message,
+                         "attached (esm-apps,esm-infra,livepatch)")
