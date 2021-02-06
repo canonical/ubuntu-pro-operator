@@ -63,22 +63,24 @@ class TestCharm(TestCase):
     @patch("subprocess.check_call")
     def test_config_changed_defaults(self, _check_call):
         self.harness.update_config()
-        self.assertEqual(_check_call.call_count, 2)
+        self.assertEqual(_check_call.call_count, 3)
         _check_call.assert_has_calls([
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
             call(["apt", "update"]),
             call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ])
-        self.assertIsNone(self.harness.charm._state.hashed_token)
-        self.assertFalse(self.harness.charm._state.package_needs_installing)
         self.assertIsNone(self.harness.charm._state.ppa)
+        self.assertFalse(self.harness.charm._state.package_needs_installing)
+        self.assertIsNone(self.harness.charm._state.hashed_token)
         self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
         self.assertEqual(self.harness.model.unit.status.message, "No token configured")
 
     @patch("subprocess.check_call")
     def test_config_changed_does_not_install_twice(self, _check_call):
         self.harness.update_config()
-        self.assertEqual(_check_call.call_count, 2)
+        self.assertEqual(_check_call.call_count, 3)
         _check_call.assert_has_calls([
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
             call(["apt", "update"]),
             call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ])
@@ -91,9 +93,10 @@ class TestCharm(TestCase):
     @patch("subprocess.check_call")
     def test_config_changed_ppa_new(self, _check_call):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(_check_call.call_count, 3)
+        self.assertEqual(_check_call.call_count, 4)
         _check_call.assert_has_calls([
             call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
             call(["apt", "update"]),
             call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ])
@@ -103,9 +106,10 @@ class TestCharm(TestCase):
     @patch("subprocess.check_call")
     def test_config_changed_ppa_updated(self, _check_call):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(_check_call.call_count, 3)
+        self.assertEqual(_check_call.call_count, 4)
         _check_call.assert_has_calls([
             call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
             call(["apt", "update"]),
             call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ])
@@ -113,10 +117,11 @@ class TestCharm(TestCase):
         self.assertFalse(self.harness.charm._state.package_needs_installing)
         _check_call.reset_mock()
         self.harness.update_config({"ppa": "ppa:different-client/unstable"})
-        self.assertEqual(_check_call.call_count, 4)
+        self.assertEqual(_check_call.call_count, 5)
         _check_call.assert_has_calls([
             call(["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"]),
             call(["add-apt-repository", "--yes", "ppa:different-client/unstable"]),
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
             call(["apt", "update"]),
             call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ])
@@ -126,9 +131,10 @@ class TestCharm(TestCase):
     @patch("subprocess.check_call")
     def test_config_changed_ppa_unmodified(self, _check_call):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(_check_call.call_count, 3)
+        self.assertEqual(_check_call.call_count, 4)
         _check_call.assert_has_calls([
             call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
             call(["apt", "update"]),
             call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ])
@@ -146,6 +152,7 @@ class TestCharm(TestCase):
         with self.assertRaises(CalledProcessError):
             self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertIsNone(self.harness.charm._state.ppa)
+        self.assertTrue(self.harness.charm._state.package_needs_installing)
         self.assertIsInstance(self.harness.model.unit.status, MaintenanceStatus)
 
     @patch("subprocess.call")
@@ -178,8 +185,9 @@ class TestCharm(TestCase):
         ]
         _call.return_value = 0
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(_check_call.call_count, 2)
+        self.assertEqual(_check_call.call_count, 3)
         _check_call.assert_has_calls([
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
             call(["apt", "update"]),
             call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ])
@@ -234,8 +242,9 @@ class TestCharm(TestCase):
         ]
         _call.return_value = 0
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(_check_call.call_count, 2)
+        self.assertEqual(_check_call.call_count, 3)
         _check_call.assert_has_calls([
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
             call(["apt", "update"]),
             call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ])

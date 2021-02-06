@@ -33,6 +33,11 @@ def install_package(package):
     subprocess.check_call(["apt", "install", "--yes", "--quiet", package])
 
 
+def remove_package(package):
+    """Remove specified apt package"""
+    subprocess.check_call(["apt", "remove", "--yes", "--quiet", package])
+
+
 def get_status_output():
     """Return the parsed output from ubuntu-advantage status"""
     output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"])
@@ -69,6 +74,8 @@ class UbuntuAdvantageCharm(CharmBase):
         if old_ppa and old_ppa != ppa:
             logger.info("Removing previously installed ppa (%s)", old_ppa)
             remove_ppa(old_ppa)
+            # If ppa is changed, want to remove the previous version of the package for consistency
+            self._state.package_needs_installing = True
         if ppa and ppa != old_ppa:
             logger.info("Installing ppa: %s", ppa)
             install_ppa(ppa)
@@ -79,6 +86,8 @@ class UbuntuAdvantageCharm(CharmBase):
     def _handle_package_state(self):
         """Install apt package if necessary"""
         if self._state.package_needs_installing:
+            logger.info("Removing package ubuntu-advantage-tools")
+            remove_package("ubuntu-advantage-tools")
             logger.info("Installing package ubuntu-advantage-tools")
             install_package("ubuntu-advantage-tools")
             self._state.package_needs_installing = False
