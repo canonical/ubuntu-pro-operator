@@ -147,6 +147,30 @@ class TestCharm(TestCase):
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
     @patch("subprocess.check_call")
+    def test_config_changed_ppa_unset(self, _check_call):
+        self.harness.update_config({"ppa": "ppa:ua-client/stable"})
+        self.assertEqual(_check_call.call_count, 4)
+        _check_call.assert_has_calls([
+            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
+            call(["apt", "update"]),
+            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        ])
+        self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
+        self.assertFalse(self.harness.charm._state.package_needs_installing)
+        _check_call.reset_mock()
+        self.harness.update_config({"ppa": ""})
+        self.assertEqual(_check_call.call_count, 4)
+        _check_call.assert_has_calls([
+            call(["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"]),
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
+            call(["apt", "update"]),
+            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        ])
+        self.assertIsNone(self.harness.charm._state.ppa)
+        self.assertFalse(self.harness.charm._state.package_needs_installing)
+
+    @patch("subprocess.check_call")
     def test_config_changed_ppa_apt_failure(self, _check_call):
         _check_call.side_effect = CalledProcessError("apt failure", "add-apt-repository")
         with self.assertRaises(CalledProcessError):

@@ -74,6 +74,7 @@ class UbuntuAdvantageCharm(CharmBase):
         if old_ppa and old_ppa != ppa:
             logger.info("Removing previously installed ppa (%s)", old_ppa)
             remove_ppa(old_ppa)
+            self._state.ppa = None
             # If ppa is changed, want to remove the previous version of the package for consistency
             self._state.package_needs_installing = True
         if ppa and ppa != old_ppa:
