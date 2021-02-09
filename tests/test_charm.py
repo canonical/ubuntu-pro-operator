@@ -197,7 +197,7 @@ class TestCharm(TestCase):
                          "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
         self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
         self.assertEqual(self.harness.model.unit.status.message,
-                         "attached (esm-apps,esm-infra,livepatch)")
+                         "Attached (esm-apps,esm-infra,livepatch)")
 
     @patch("subprocess.call")
     @patch("subprocess.check_output")
@@ -241,7 +241,7 @@ class TestCharm(TestCase):
                          "ab8a83efb364bf3f6739348519b53c8e8e0f7b4c06b6eeb881ad73dcf0059107")
         self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
         self.assertEqual(self.harness.model.unit.status.message,
-                         "attached (esm-apps,esm-infra,livepatch)")
+                         "Attached (esm-apps,esm-infra,livepatch)")
 
     @patch("subprocess.call")
     @patch("subprocess.check_output")
@@ -307,4 +307,4 @@ class TestCharm(TestCase):
         self.harness.update_config({"token": "test-token"})
         self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
         self.assertEqual(self.harness.model.unit.status.message,
-                         "attached (esm-apps,esm-infra,livepatch)")
+                         "Attached (esm-apps,esm-infra,livepatch)")

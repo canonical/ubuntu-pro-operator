@@ -125,7 +125,7 @@ class UbuntuAdvantageCharm(CharmBase):
         for service in status.get("services"):
             if service.get("status") == "enabled":
                 services.append(service.get("name"))
-        message = "attached (" + ",".join(services) + ")"
+        message = "Attached (" + ",".join(services) + ")"
         self.unit.status = ActiveStatus(message)
 
 
