@@ -1,7 +1,9 @@
-/venv
-*.py[cod]
-*.charm
 /build
+/venv
+
+*.charm
+*.py[cod]
+*.swp
+
 .coverage
 __pycache__/
-*.swp

@@ -11,7 +11,7 @@ import subprocess
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ class UbuntuAdvantageCharm(CharmBase):
     def config_changed(self, event):
         """Install and configure ubuntu-advantage tools and attachment"""
         logger.info("Beginning config_changed")
+        self.unit.status = MaintenanceStatus("Configuring")
         self._handle_ppa_state()
         self._handle_package_state()
         self._handle_token_state()
@@ -125,7 +126,7 @@ class UbuntuAdvantageCharm(CharmBase):
         for service in status.get("services"):
             if service.get("status") == "enabled":
                 services.append(service.get("name"))
-        message = "attached (" + ",".join(services) + ")"
+        message = "Attached (" + ",".join(services) + ")"
         self.unit.status = ActiveStatus(message)
 
 

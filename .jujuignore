@@ -1,7 +1,12 @@
 /venv
 *.py[cod]
 *.charm
-/build
-.coverage
-__pycache__/
+
 *.swp
+.coverage
+.flake8
+.gitignore
+requirements.txt
+requirements-dev.txt
+run_tests
+tests/
