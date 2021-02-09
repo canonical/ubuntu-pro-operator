@@ -298,6 +298,24 @@ class TestCharm(TestCase):
     @patch("subprocess.call")
     @patch("subprocess.check_output")
     @patch("subprocess.check_call")
+    def test_config_changed_token_update_after_block(self, _check_call, _check_output, _call):
+        self.harness.update_config()
+        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
+        _check_output.side_effect = [
+            STATUS_DETACHED,
+            STATUS_ATTACHED
+        ]
+        _call.return_value = 0
+        self.harness.update_config({"token": "test-token"})
+        self.assertEqual(_call.call_count, 1)
+        _call.assert_has_calls([
+            call(["ubuntu-advantage", "attach", "test-token"])
+        ])
+        self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
+
+    @patch("subprocess.call")
+    @patch("subprocess.check_output")
+    @patch("subprocess.check_call")
     def test_config_changed_check_output_returns_bytes(self, _check_call, _check_output, _call):
         _check_output.side_effect = [
             bytes(STATUS_DETACHED, "utf-8"),
