@@ -71,6 +71,8 @@ class UbuntuAdvantageCharm(CharmBase):
     def _handle_ppa_state(self):
         """Handle installing/removing ppa based on configuration and state"""
         ppa = self.config.get("ppa")
+        if ppa:
+            ppa = ppa.strip()
         old_ppa = self._state.ppa
         if old_ppa and old_ppa != ppa:
             logger.info("Removing previously installed ppa (%s)", old_ppa)
@@ -97,6 +99,8 @@ class UbuntuAdvantageCharm(CharmBase):
     def _handle_token_state(self):
         """Handle subscription attachment and status output based on configuration and state"""
         token = self.config.get("token")
+        if token:
+            token = token.strip()
         old_hashed_token = self._state.hashed_token
         if not token:
             if old_hashed_token:
