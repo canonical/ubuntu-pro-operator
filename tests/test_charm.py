@@ -316,6 +316,35 @@ class TestCharm(TestCase):
     @patch("subprocess.call")
     @patch("subprocess.check_output")
     @patch("subprocess.check_call")
+    def test_config_changed_token_contains_newline(self, _check_call, _check_output, _call):
+        _check_output.side_effect = [
+            STATUS_DETACHED,
+            STATUS_ATTACHED
+        ]
+        _call.return_value = 0
+        self.harness.update_config({"token": "test-token\n"})
+        self.assertEqual(_call.call_count, 1)
+        _call.assert_has_calls([
+            call(["ubuntu-advantage", "attach", "test-token"])
+        ])
+        self.assertEqual(self.harness.charm._state.hashed_token,
+                         "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
+
+    @patch("subprocess.check_call")
+    def test_config_changed_ppa_contains_newline(self, _check_call):
+        self.harness.update_config({"ppa": "ppa:ua-client/stable\n"})
+        self.assertEqual(_check_call.call_count, 4)
+        _check_call.assert_has_calls([
+            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
+            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
+            call(["apt", "update"]),
+            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        ])
+        self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
+
+    @patch("subprocess.call")
+    @patch("subprocess.check_output")
+    @patch("subprocess.check_call")
     def test_config_changed_check_output_returns_bytes(self, _check_call, _check_output, _call):
         _check_output.side_effect = [
             bytes(STATUS_DETACHED, "utf-8"),
