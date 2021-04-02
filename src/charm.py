@@ -150,7 +150,7 @@ class UbuntuAdvantageCharm(CharmBase):
 
     def _update_uaclient_config(self, contract_url):
         with open(UACLIENT_CONFIG, 'r') as f:
-            client_config = yaml.load(f)
+            client_config = yaml.safe_load(f)
 
         if not contract_url:
             # Contract url is not set in charm config - revert to original one.
