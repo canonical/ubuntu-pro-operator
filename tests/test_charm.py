@@ -54,7 +54,7 @@ STATUS_DETACHED = json.dumps(
     }
 )
 
-# Default contents of /etc/ubuntu-advantag/uaclient.conf
+# Default contents of /etc/ubuntu-advantage/uaclient.conf
 DEFAULT_CLIENT_CONFIG = """
 # Ubuntu-Advantage client config file.
 contract_url: 'https://contracts.canonical.com'
@@ -392,7 +392,6 @@ class TestCharm(TestCase):
         self.assertEqual(_written(handle), expected)
         self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
         self.assertEqual(self.harness.model.unit.status.message, "No token configured")
-        self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
 
     @patch("builtins.open")
     @patch("subprocess.check_output")

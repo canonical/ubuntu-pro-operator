@@ -84,7 +84,6 @@ class UbuntuAdvantageCharm(CharmBase):
         return_code = subprocess.call(["ubuntu-advantage", "attach", token])
         if return_code != 0:
             self.unit.status = BlockedStatus("Error attaching, possibly an invalid token?")
-            return
 
     def _handle_ppa_state(self):
         """Handle installing/removing ppa based on configuration and state"""
@@ -126,7 +125,6 @@ class UbuntuAdvantageCharm(CharmBase):
         if not config_changed and not token_changed:
             if not token:
                 self.unit.status = BlockedStatus("No token configured")
-                return
             return
 
         status = get_status_output()
