@@ -3,8 +3,9 @@
 
 import json
 from subprocess import CalledProcessError
+from textwrap import dedent
 from unittest import TestCase
-from unittest.mock import patch, call
+from unittest.mock import call, mock_open, patch
 
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
@@ -52,6 +53,15 @@ STATUS_DETACHED = json.dumps(
         ]
     }
 )
+
+# Default contents of /etc/ubuntu-advantage/uaclient.conf
+DEFAULT_CLIENT_CONFIG = """
+# Ubuntu-Advantage client config file.
+contract_url: 'https://contracts.canonical.com'
+data_dir: /var/lib/ubuntu-advantage
+log_level: debug
+log_file: /var/log/ubuntu-advantage.log
+"""
 
 
 class TestCharm(TestCase):
@@ -223,7 +233,6 @@ class TestCharm(TestCase):
                          "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
         _check_output.side_effect = [
             STATUS_ATTACHED,
-            STATUS_DETACHED,
             STATUS_ATTACHED
         ]
         _call.reset_mock()
@@ -355,3 +364,151 @@ class TestCharm(TestCase):
         self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
         self.assertEqual(self.harness.model.unit.status.message,
                          "Attached (esm-apps,esm-infra,livepatch)")
+
+    @patch("builtins.open")
+    @patch("subprocess.check_output")
+    @patch("subprocess.check_call")
+    @patch("subprocess.call")
+    def test_config_changed_contract_url(self, _call, _check_call, _check_output, _open):
+        """
+        Setting the contract_url config will cause the ua client config file to
+        be written.
+        """
+        _check_output.side_effect = [
+            STATUS_DETACHED,
+        ]
+        mock_open(_open, read_data=DEFAULT_CLIENT_CONFIG)
+
+        self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
+        _open.assert_called_with('/etc/ubuntu-advantage/uaclient.conf', 'w')
+        handle = _open()
+        expected = dedent("""\
+            contract_url: https://contracts.staging.canonical.com
+            data_dir: /var/lib/ubuntu-advantage
+            log_file: /var/log/ubuntu-advantage.log
+            log_level: debug
+        """)
+        _call.assert_not_called()
+        self.assertEqual(_written(handle), expected)
+        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
+        self.assertEqual(self.harness.model.unit.status.message, "No token configured")
+
+    @patch("builtins.open")
+    @patch("subprocess.check_output")
+    @patch("subprocess.check_call")
+    @patch("subprocess.call")
+    def test_config_changed_contract_url_reattach(self, _call, _check_call, _check_output, _open):
+        """
+        If the contract url is altered of an attached instance (token is set),
+        the instance will detach and reattach.
+        """
+        _check_output.side_effect = [
+            STATUS_DETACHED,
+            STATUS_ATTACHED,
+        ]
+        _call.return_value = 0
+        mock_open(_open, read_data=DEFAULT_CLIENT_CONFIG)
+
+        self.harness.update_config({"token": "test-token"})
+        _call.assert_has_calls([
+            call(["ubuntu-advantage", "attach", "test-token"])
+        ])
+        self.assertEqual(self.harness.charm._state.hashed_token,
+                         "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
+        # Alter contract_url.
+        _call.reset_mock()
+        _check_call.reset_mock()
+        _check_output.side_effect = [
+            STATUS_ATTACHED,
+            STATUS_ATTACHED,
+        ]
+        self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
+        _open.assert_called_with('/etc/ubuntu-advantage/uaclient.conf', 'w')
+        handle = _open()
+        expected = dedent("""\
+            contract_url: https://contracts.staging.canonical.com
+            data_dir: /var/lib/ubuntu-advantage
+            log_file: /var/log/ubuntu-advantage.log
+            log_level: debug
+        """)
+        self.assertEqual(_written(handle), expected)
+        _check_call.assert_has_calls([
+            call(['ubuntu-advantage', 'detach', '--assume-yes'])
+        ])
+        _call.assert_has_calls([
+            call(['ubuntu-advantage', 'attach', 'test-token'])
+        ])
+        self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
+        self.assertEqual(self.harness.model.unit.status.message,
+                         "Attached (esm-apps,esm-infra,livepatch)")
+
+        # Check that a config change not involving the token or contract_url
+        # is handled properly.
+        _call.reset_mock()
+        _open.reset_mock()
+        _check_call.reset_mock()
+        _check_output.side_effect = [
+            STATUS_ATTACHED,
+        ]
+        self.harness.update_config()
+        _open.assert_not_called()
+        _call.assert_not_called()
+
+    @patch("builtins.open")
+    @patch("subprocess.check_output")
+    @patch("subprocess.check_call")
+    @patch("subprocess.call")
+    def test_config_changed_unset_contract_url(self, _call, _check_call, _check_output, _open):
+        """
+        If the contract url value is unset from charm config, the default value
+        will be used.
+        """
+        """
+        Setting the contract_url config will cause the ua client config file to
+        be written.
+        """
+        _check_output.side_effect = [
+            STATUS_DETACHED,
+            STATUS_DETACHED,
+        ]
+        mock_open(_open, read_data=DEFAULT_CLIENT_CONFIG)
+
+        self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
+        _open.assert_called_with('/etc/ubuntu-advantage/uaclient.conf', 'w')
+        handle = _open()
+        expected = dedent("""\
+            contract_url: https://contracts.staging.canonical.com
+            data_dir: /var/lib/ubuntu-advantage
+            log_file: /var/log/ubuntu-advantage.log
+            log_level: debug
+        """)
+        _call.assert_not_called()
+        self.assertEqual(_written(handle), expected)
+        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
+        self.assertEqual(self.harness.model.unit.status.message, "No token configured")
+
+        _open.reset_mock()
+        _call.reset_mock()
+        _check_call.reset_mock()
+        _check_output.side_effect = [
+            STATUS_DETACHED,
+            STATUS_DETACHED,
+        ]
+        self.harness.update_config({"contract_url": ''})
+        _open.assert_called_with('/etc/ubuntu-advantage/uaclient.conf', 'w')
+        handle = _open()
+        expected = dedent("""\
+            contract_url: https://contracts.canonical.com
+            data_dir: /var/lib/ubuntu-advantage
+            log_file: /var/log/ubuntu-advantage.log
+            log_level: debug
+        """)
+        _call.assert_not_called()
+        self.assertEqual(_written(handle), expected)
+        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
+        self.assertEqual(self.harness.model.unit.status.message, "No token configured")
+
+
+def _written(handle):
+    contents = ''.join([''.join(a.args) for a in handle.write.call_args_list])
+    return contents
