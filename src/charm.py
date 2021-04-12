@@ -17,9 +17,6 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 
 logger = logging.getLogger(__name__)
 
-UACLIENT_CONFIG = '/etc/ubuntu-advantage/uaclient.conf'
-DEFAULT_CONTRACT_URL = 'https://contracts.canonical.com'
-
 
 def install_ppa(ppa):
     """Install specified ppa"""
@@ -40,6 +37,25 @@ def install_package(package):
 def remove_package(package):
     """Remove specified apt package"""
     subprocess.check_call(["apt", "remove", "--yes", "--quiet", package])
+
+
+def update_configuration(contract_url):
+    """Write the contract_url to the uaclient configuration file"""
+    with open("/etc/ubuntu-advantage/uaclient.conf", "r+") as f:
+        client_config = yaml.safe_load(f)
+        client_config["contract_url"] = contract_url
+        f.seek(0)
+        yaml.dump(client_config, f)
+
+
+def detach_subscription():
+    """Detach from any ubuntu-advantage subscription"""
+    subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
+
+
+def attach_subscription(token):
+    """Attach an ubuntu-advantage subscription using the specified token"""
+    return subprocess.call(["ubuntu-advantage", "attach", token])
 
 
 def get_status_output():
@@ -70,31 +86,24 @@ class UbuntuAdvantageCharm(CharmBase):
         self.unit.status = MaintenanceStatus("Configuring")
         self._handle_ppa_state()
         self._handle_package_state()
-        self._handle_token_state()
+        self._handle_subscription_state()
         if isinstance(self.unit.status, BlockedStatus):
             return
         self._handle_status_state()
         logger.info("Finished config_changed")
 
-    def _detach(self):
-        logger.info("Detaching ubuntu-advantage subscription")
-        subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
-
-    def _attach(self, token):
-        return_code = subprocess.call(["ubuntu-advantage", "attach", token])
-        if return_code != 0:
-            self.unit.status = BlockedStatus("Error attaching, possibly an invalid token?")
-
     def _handle_ppa_state(self):
         """Handle installing/removing ppa based on configuration and state"""
         ppa = self.config.get("ppa", "").strip()
         old_ppa = self._state.ppa
+
         if old_ppa and old_ppa != ppa:
             logger.info("Removing previously installed ppa (%s)", old_ppa)
             remove_ppa(old_ppa)
             self._state.ppa = None
             # If ppa is changed, want to remove the previous version of the package for consistency
             self._state.package_needs_installing = True
+
         if ppa and ppa != old_ppa:
             logger.info("Installing ppa: %s", ppa)
             install_ppa(ppa)
@@ -111,53 +120,37 @@ class UbuntuAdvantageCharm(CharmBase):
             install_package("ubuntu-advantage-tools")
             self._state.package_needs_installing = False
 
-    def _handle_token_state(self):
-        """Handle subscription attachment and status output based on configuration and state"""
+    def _handle_subscription_state(self):
+        """Handle uaclient configuration and subscription attachment"""
         token = self.config.get("token", "").strip()
         hashed_token = hashlib.sha256(token.encode("utf-8")).hexdigest()
-        old_hashed_token = self._state.hashed_token or ''
+        old_hashed_token = self._state.hashed_token
+        token_changed = hashed_token != old_hashed_token
+
         contract_url = self.config.get("contract_url", "").strip()
-        old_contract_url = self._state.contract_url or ''
-
+        old_contract_url = self._state.contract_url
         config_changed = contract_url != old_contract_url
-        token_changed = (token or old_hashed_token) and hashed_token != old_hashed_token
-
-        if not config_changed and not token_changed:
-            if not token:
-                self.unit.status = BlockedStatus("No token configured")
-            return
 
         status = get_status_output()
-
-        if config_changed or token_changed:
-            # Detach if either the config (contract_url) or the token have changed.
-            if status["attached"]:
-                self._detach()
-                self._state.hashed_token = None
+        if status["attached"] and (config_changed or token_changed):
+            logger.info("Detaching ubuntu-advantage subscription")
+            detach_subscription()
+            self._state.hashed_token = None
 
         if config_changed:
-            self._update_uaclient_config(contract_url)
+            update_configuration(contract_url)
+            self._state.contract_url = contract_url
 
         if not token:
             self.unit.status = BlockedStatus("No token configured")
             return
-
-        if token:
-            self._attach(token)
+        elif config_changed or token_changed:
+            return_code = attach_subscription(token)
+            if return_code != 0:
+                self.unit.status = BlockedStatus(("Error attaching, possibly an invalid token"
+                                                  " or contract_url?"))
+                return
             self._state.hashed_token = hashed_token
-
-    def _update_uaclient_config(self, contract_url):
-        with open(UACLIENT_CONFIG, 'r') as f:
-            client_config = yaml.safe_load(f)
-
-        if not contract_url:
-            # Contract url is not set in charm config - revert to original one.
-            contract_url = DEFAULT_CONTRACT_URL
-
-        client_config['contract_url'] = contract_url
-        with open(UACLIENT_CONFIG, 'w') as f:
-            yaml.dump(client_config, f)
-        self._state.contract_url = contract_url
 
     def _handle_status_state(self):
         """Parse status output to determine which services are active"""
