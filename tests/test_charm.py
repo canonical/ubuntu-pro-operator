@@ -213,9 +213,8 @@ class TestCharm(TestCase):
         ])
         self.assertEqual(self.harness.charm._state.hashed_token,
                          "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
-        self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
-        self.assertEqual(self.harness.model.unit.status.message,
-                         "Attached (esm-apps,esm-infra,livepatch)")
+        self.assertEqual(self.harness.model.unit.status,
+                         ActiveStatus("Attached (esm-apps,esm-infra,livepatch)"))
 
     def test_config_changed_token_reattach(self):
         self.mocks["check_output"].side_effect = [
@@ -264,16 +263,14 @@ class TestCharm(TestCase):
         ])
         self.assertEqual(self.harness.charm._state.hashed_token,
                          "ab8a83efb364bf3f6739348519b53c8e8e0f7b4c06b6eeb881ad73dcf0059107")
-        self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
-        self.assertEqual(self.harness.model.unit.status.message,
-                         "Attached (esm-apps,esm-infra,livepatch)")
+        self.assertEqual(self.harness.model.unit.status,
+                         ActiveStatus("Attached (esm-apps,esm-infra,livepatch)"))
 
     def test_config_changed_attach_failure(self):
         self.mocks["call"].return_value = 1
         self.harness.update_config({"token": "test-token"})
-        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
-        self.assertEqual(self.harness.model.unit.status.message,
-                         "Error attaching, possibly an invalid token or contract_url?")
+        message = "Error attaching, possibly an invalid token or contract_url?"
+        self.assertEqual(self.harness.model.unit.status, BlockedStatus(message))
 
     def test_config_changed_token_detach(self):
         self.mocks["check_output"].side_effect = [
@@ -302,8 +299,7 @@ class TestCharm(TestCase):
         ])
         self.assertEqual(self.mocks["call"].call_count, 0)
         self.assertIsNone(self.harness.charm._state.hashed_token)
-        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
-        self.assertEqual(self.harness.model.unit.status.message, "No token configured")
+        self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
 
     def test_config_changed_token_update_after_block(self):
         self.harness.update_config()
@@ -347,9 +343,8 @@ class TestCharm(TestCase):
             bytes(STATUS_ATTACHED, "utf-8")
         ]
         self.harness.update_config({"token": "test-token"})
-        self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
-        self.assertEqual(self.harness.model.unit.status.message,
-                         "Attached (esm-apps,esm-infra,livepatch)")
+        self.assertEqual(self.harness.model.unit.status,
+                         ActiveStatus("Attached (esm-apps,esm-infra,livepatch)"))
 
     def test_config_changed_contract_url(self):
         self.mocks["check_output"].side_effect = [
@@ -406,9 +401,8 @@ class TestCharm(TestCase):
         self.mocks["call"].assert_has_calls([
             call(["ubuntu-advantage", "attach", "test-token"])
         ])
-        self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
-        self.assertEqual(self.harness.model.unit.status.message,
-                         "Attached (esm-apps,esm-infra,livepatch)")
+        self.assertEqual(self.harness.model.unit.status,
+                         ActiveStatus("Attached (esm-apps,esm-infra,livepatch)"))
 
         self.mocks["call"].reset_mock()
         self.mocks["check_call"].reset_mock()
@@ -439,8 +433,7 @@ class TestCharm(TestCase):
         """)
         self.mocks["call"].assert_not_called()
         self.assertEqual(_written(handle), expected)
-        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
-        self.assertEqual(self.harness.model.unit.status.message, "No token configured")
+        self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
         self.mocks["open"].reset_mock()
         self.mocks["call"].reset_mock()
         self.mocks["check_call"].reset_mock()
@@ -460,5 +453,4 @@ class TestCharm(TestCase):
         """)
         self.mocks["call"].assert_not_called()
         self.assertEqual(_written(handle), expected)
-        self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
-        self.assertEqual(self.harness.model.unit.status.message, "No token configured")
+        self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))

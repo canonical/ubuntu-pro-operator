@@ -147,8 +147,8 @@ class UbuntuAdvantageCharm(CharmBase):
         elif config_changed or token_changed:
             return_code = attach_subscription(token)
             if return_code != 0:
-                self.unit.status = BlockedStatus(("Error attaching, possibly an invalid token"
-                                                  " or contract_url?"))
+                message = "Error attaching, possibly an invalid token or contract_url?"
+                self.unit.status = BlockedStatus(message)
                 return
             self._state.hashed_token = hashed_token
 
