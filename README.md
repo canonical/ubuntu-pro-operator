@@ -9,7 +9,7 @@ This charm enables Ubuntu Advantage (https://ubuntu.com/advantage) subscriptions
 Be sure to replace `<token>` with a valid value from https://ubuntu.com/advantage
 
     juju deploy cs:ubuntu
-    juju deploy cs:~ubuntu-advantage-charmers/ubuntu-advantage --config ubuntu-advantage-token=<token>
+    juju deploy cs:~ubuntu-advantage-charmers/ubuntu-advantage --config token=<token>
     juju add-relation ubuntu ubuntu-advantage
 
 ## Developing

@@ -1,7 +1,7 @@
 options:
   contract_url:
-    default: ""
-    description: Contract service url to use. Will default to the standard one if not supplied.
+    default: "https://contracts.canonical.com"
+    description: Contract service URL to use
     type: string
   ppa:
     default: "ppa:ua-client/stable"
