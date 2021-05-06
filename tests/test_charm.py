@@ -207,6 +207,7 @@ class TestCharm(TestCase):
             log_level: debug
         """)
         self.assertEqual(_written(handle), expected)
+        handle.truncate.assert_called_once()
         self.assertEqual(self.mocks["call"].call_count, 1)
         self.mocks["call"].assert_has_calls([
             call(["ubuntu-advantage", "attach", "test-token"])
@@ -238,6 +239,7 @@ class TestCharm(TestCase):
             log_level: debug
         """)
         self.assertEqual(_written(handle), expected)
+        handle.truncate.assert_called_once()
         self.assertEqual(self.mocks["call"].call_count, 1)
         self.mocks["call"].assert_has_calls([
             call(["ubuntu-advantage", "attach", "test-token"])
@@ -361,6 +363,7 @@ class TestCharm(TestCase):
             log_level: debug
         """)
         self.assertEqual(_written(handle), expected)
+        handle.truncate.assert_called_once()
         self.assertEqual(self.harness.charm._state.contract_url,
                          "https://contracts.staging.canonical.com")
 
@@ -395,6 +398,7 @@ class TestCharm(TestCase):
             log_level: debug
         """)
         self.assertEqual(_written(handle), expected)
+        handle.truncate.assert_called_once()
         self.mocks["check_call"].assert_has_calls([
             call(["ubuntu-advantage", "detach", "--assume-yes"])
         ])
@@ -431,8 +435,9 @@ class TestCharm(TestCase):
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
         """)
-        self.mocks["call"].assert_not_called()
         self.assertEqual(_written(handle), expected)
+        handle.truncate.assert_called_once()
+        self.mocks["call"].assert_not_called()
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
         self.mocks["open"].reset_mock()
         self.mocks["call"].reset_mock()
@@ -451,6 +456,7 @@ class TestCharm(TestCase):
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
         """)
-        self.mocks["call"].assert_not_called()
         self.assertEqual(_written(handle), expected)
+        handle.truncate.assert_called_once()
+        self.mocks["call"].assert_not_called()
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))

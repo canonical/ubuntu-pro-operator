@@ -46,6 +46,7 @@ def update_configuration(contract_url):
         client_config["contract_url"] = contract_url
         f.seek(0)
         yaml.dump(client_config, f)
+        f.truncate()
 
 
 def detach_subscription():
@@ -138,6 +139,7 @@ class UbuntuAdvantageCharm(CharmBase):
             self._state.hashed_token = None
 
         if config_changed:
+            logger.info("Updating uaclient.conf")
             update_configuration(contract_url)
             self._state.contract_url = contract_url
 
@@ -145,6 +147,7 @@ class UbuntuAdvantageCharm(CharmBase):
             self.unit.status = BlockedStatus("No token configured")
             return
         elif config_changed or token_changed:
+            logger.info("Attaching ubuntu-advantage subscription")
             return_code = attach_subscription(token)
             if return_code != 0:
                 message = "Error attaching, possibly an invalid token or contract_url?"
