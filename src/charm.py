@@ -8,6 +8,7 @@ import json
 import logging
 import subprocess
 import yaml
+import os
 
 from ops.charm import CharmBase
 from ops.framework import StoredState
@@ -18,25 +19,25 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 logger = logging.getLogger(__name__)
 
 
-def install_ppa(ppa):
+def install_ppa(ppa, env):
     """Install specified ppa"""
-    subprocess.check_call(["add-apt-repository", "--yes", ppa])
+    subprocess.check_call(["add-apt-repository", "--yes", ppa], env=env)
 
 
-def remove_ppa(ppa):
+def remove_ppa(ppa, env):
     """Remove specified ppa"""
-    subprocess.check_call(["add-apt-repository", "--remove", "--yes", ppa])
+    subprocess.check_call(["add-apt-repository", "--remove", "--yes", ppa], env=env)
 
 
-def install_package(package):
+def install_package(package, env):
     """Install specified apt package (after performing an apt update)"""
-    subprocess.check_call(["apt", "update"])
-    subprocess.check_call(["apt", "install", "--yes", "--quiet", package])
+    subprocess.check_call(["apt", "update"], env=env)
+    subprocess.check_call(["apt", "install", "--yes", "--quiet", package], env=env)
 
 
-def remove_package(package):
+def remove_package(package, env):
     """Remove specified apt package"""
-    subprocess.check_call(["apt", "remove", "--yes", "--quiet", package])
+    subprocess.check_call(["apt", "remove", "--yes", "--quiet", package], env=env)
 
 
 def update_configuration(contract_url):
@@ -49,19 +50,20 @@ def update_configuration(contract_url):
         f.truncate()
 
 
-def detach_subscription():
+def detach_subscription(env):
     """Detach from any ubuntu-advantage subscription"""
-    subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
+    subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"], env=env)
 
 
-def attach_subscription(token):
+def attach_subscription(token, env):
     """Attach an ubuntu-advantage subscription using the specified token"""
-    return subprocess.call(["ubuntu-advantage", "attach", token])
+    return subprocess.call(["ubuntu-advantage", "attach", token], env=env)
 
 
-def get_status_output():
+def get_status_output(env):
     """Return the parsed output from ubuntu-advantage status"""
-    output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"])
+    output = subprocess.check_output(
+        ["ubuntu-advantage", "status", "--all", "--format", "json"], env=env)
     # handle different return type from xenial
     if isinstance(output, bytes):
         output = output.decode("utf-8")
@@ -74,12 +76,22 @@ class UbuntuAdvantageCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self._setup_proxy_env()
         self._state.set_default(
             contract_url=None,
             hashed_token=None,
             package_needs_installing=True,
-            ppa=None)
+            ppa=None,
+            env=self.env)
+
         self.framework.observe(self.on.config_changed, self.config_changed)
+
+    def _setup_proxy_env(self):
+        """Setup proxy variables from model"""
+        self.env = dict(os.environ)
+        self.env['http_proxy'] = self.env.get('JUJU_CHARM_HTTP_PROXY', '')
+        self.env['https_proxy'] = self.env.get('JUJU_CHARM_HTTPS_PROXY', '')
+        self.env['no_proxy'] = self.env.get('JUJU_CHARM_NO_PROXY', '')
 
     def config_changed(self, event):
         """Install and configure ubuntu-advantage tools and attachment"""
@@ -100,14 +112,14 @@ class UbuntuAdvantageCharm(CharmBase):
 
         if old_ppa and old_ppa != ppa:
             logger.info("Removing previously installed ppa (%s)", old_ppa)
-            remove_ppa(old_ppa)
+            remove_ppa(old_ppa, self._state.env)
             self._state.ppa = None
             # If ppa is changed, want to remove the previous version of the package for consistency
             self._state.package_needs_installing = True
 
         if ppa and ppa != old_ppa:
             logger.info("Installing ppa: %s", ppa)
-            install_ppa(ppa)
+            install_ppa(ppa, self._state.env)
             self._state.ppa = ppa
             # If ppa is changed, want to force an install of the package for potential updates
             self._state.package_needs_installing = True
@@ -116,9 +128,9 @@ class UbuntuAdvantageCharm(CharmBase):
         """Install apt package if necessary"""
         if self._state.package_needs_installing:
             logger.info("Removing package ubuntu-advantage-tools")
-            remove_package("ubuntu-advantage-tools")
+            remove_package("ubuntu-advantage-tools", self._state.env)
             logger.info("Installing package ubuntu-advantage-tools")
-            install_package("ubuntu-advantage-tools")
+            install_package("ubuntu-advantage-tools", self._state.env)
             self._state.package_needs_installing = False
 
     def _handle_subscription_state(self):
@@ -132,10 +144,10 @@ class UbuntuAdvantageCharm(CharmBase):
         old_contract_url = self._state.contract_url
         config_changed = contract_url != old_contract_url
 
-        status = get_status_output()
+        status = get_status_output(self._state.env)
         if status["attached"] and (config_changed or token_changed):
             logger.info("Detaching ubuntu-advantage subscription")
-            detach_subscription()
+            detach_subscription(self._state.env)
             self._state.hashed_token = None
 
         if config_changed:
@@ -148,7 +160,7 @@ class UbuntuAdvantageCharm(CharmBase):
             return
         elif config_changed or token_changed:
             logger.info("Attaching ubuntu-advantage subscription")
-            return_code = attach_subscription(token)
+            return_code = attach_subscription(token, self._state.env)
             if return_code != 0:
                 message = "Error attaching, possibly an invalid token or contract_url?"
                 self.unit.status = BlockedStatus(message)
@@ -157,7 +169,7 @@ class UbuntuAdvantageCharm(CharmBase):
 
     def _handle_status_state(self):
         """Parse status output to determine which services are active"""
-        status = get_status_output()
+        status = get_status_output(self._state.env)
         services = []
         for service in status.get("services"):
             if service.get("status") == "enabled":
