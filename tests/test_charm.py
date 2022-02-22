@@ -76,16 +76,19 @@ class TestCharm(TestCase):
             "call": patch("subprocess.call").start(),
             "check_call": patch("subprocess.check_call").start(),
             "check_output": patch("subprocess.check_output").start(),
-            "open": patch("builtins.open").start()
+            "open": patch("builtins.open").start(),
+            "environ": patch("os.environ").start(),
         }
         self.mocks["check_output"].side_effect = [
             STATUS_DETACHED
         ]
         self.mocks["call"].return_value = 0
+        self.mocks["environ"].value = {}
         mock_open(self.mocks["open"], read_data=DEFAULT_CLIENT_CONFIG)
         self.harness = Harness(UbuntuAdvantageCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
+        self.env = self.harness.charm._state.env
 
     def test_config_defaults(self):
         self.assertEqual(self.harness.charm.config.get("contract_url"),
@@ -96,11 +99,11 @@ class TestCharm(TestCase):
     def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 4)
-        self.mocks["check_call"].assert_has_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        self._assert_has_calls_env("check_call", [
+            ["add-apt-repository", "--yes", "ppa:ua-client/stable"],
+            ["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"],
+            ["apt", "update"],
+            ["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"],
         ])
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
@@ -108,11 +111,11 @@ class TestCharm(TestCase):
     def test_config_changed_ppa_updated(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 4)
-        self.mocks["check_call"].assert_has_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        self._assert_has_calls_env("check_call", [
+            ["add-apt-repository", "--yes", "ppa:ua-client/stable"],
+            ["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"],
+            ["apt", "update"],
+            ["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"],
         ])
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
@@ -123,12 +126,12 @@ class TestCharm(TestCase):
         self.mocks["check_call"].reset_mock()
         self.harness.update_config({"ppa": "ppa:different-client/unstable"})
         self.assertEqual(self.mocks["check_call"].call_count, 5)
-        self.mocks["check_call"].assert_has_calls([
-            call(["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"]),
-            call(["add-apt-repository", "--yes", "ppa:different-client/unstable"]),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        self._assert_has_calls_env("check_call", [
+            ["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
+            ["add-apt-repository", "--yes", "ppa:different-client/unstable"],
+            ["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"],
+            ["apt", "update"],
+            ["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"],
         ])
         self.assertEqual(self.harness.charm._state.ppa, "ppa:different-client/unstable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
@@ -136,11 +139,11 @@ class TestCharm(TestCase):
     def test_config_changed_ppa_unmodified(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 4)
-        self.mocks["check_call"].assert_has_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        self._assert_has_calls_env("check_call", [
+            ["add-apt-repository", "--yes", "ppa:ua-client/stable"],
+            ["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"],
+            ["apt", "update"],
+            ["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"],
         ])
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
@@ -158,11 +161,11 @@ class TestCharm(TestCase):
     def test_config_changed_ppa_unset(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 4)
-        self.mocks["check_call"].assert_has_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        self._assert_has_calls_env("check_call", [
+            ["add-apt-repository", "--yes", "ppa:ua-client/stable"],
+            ["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"],
+            ["apt", "update"],
+            ["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"],
         ])
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
@@ -174,11 +177,11 @@ class TestCharm(TestCase):
         ]
         self.harness.update_config({"ppa": ""})
         self.assertEqual(self.mocks["check_call"].call_count, 4)
-        self.mocks["check_call"].assert_has_calls([
-            call(["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"]),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        self._assert_has_calls_env("check_call", [
+            ["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
+            ["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"],
+            ["apt", "update"],
+            ["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"],
         ])
         self.assertIsNone(self.harness.charm._state.ppa)
         self.assertFalse(self.harness.charm._state.package_needs_installing)
@@ -209,8 +212,8 @@ class TestCharm(TestCase):
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
+        self._assert_has_calls_env("call", [
+            ["ubuntu-advantage", "attach", "test-token"],
         ])
         self.assertEqual(self.harness.charm._state.hashed_token,
                          "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
@@ -224,11 +227,11 @@ class TestCharm(TestCase):
         ]
         self.harness.update_config({"token": "test-token"})
         self.assertEqual(self.mocks["check_call"].call_count, 4)
-        self.mocks["check_call"].assert_has_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
+        self._assert_has_calls_env("check_call", [
+            ["add-apt-repository", "--yes", "ppa:ua-client/stable"],
+            ["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"],
+            ["apt", "update"],
+            ["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"],
         ])
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
@@ -241,8 +244,8 @@ class TestCharm(TestCase):
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
+        self._assert_has_calls_env("call", [
+            ["ubuntu-advantage", "attach", "test-token"],
         ])
         self.assertEqual(self.harness.charm._state.hashed_token,
                          "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
@@ -256,12 +259,12 @@ class TestCharm(TestCase):
         ]
         self.harness.update_config({"token": "test-token-2"})
         self.assertEqual(self.mocks["check_call"].call_count, 1)
-        self.mocks["check_call"].assert_has_calls([
-            call(["ubuntu-advantage", "detach", "--assume-yes"])
+        self._assert_has_calls_env("check_call", [
+            ["ubuntu-advantage", "detach", "--assume-yes"],
         ])
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token-2"])
+        self._assert_has_calls_env("call", [
+            ["ubuntu-advantage", "attach", "test-token-2"],
         ])
         self.assertEqual(self.harness.charm._state.hashed_token,
                          "ab8a83efb364bf3f6739348519b53c8e8e0f7b4c06b6eeb881ad73dcf0059107")
@@ -281,8 +284,8 @@ class TestCharm(TestCase):
         ]
         self.harness.update_config({"token": "test-token"})
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
+        self._assert_has_calls_env("call", [
+            ["ubuntu-advantage", "attach", "test-token"],
         ])
         self.assertEqual(self.harness.charm._state.hashed_token,
                          "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
@@ -296,8 +299,8 @@ class TestCharm(TestCase):
         ]
         self.harness.update_config({"token": ""})
         self.assertEqual(self.mocks["check_call"].call_count, 1)
-        self.mocks["check_call"].assert_has_calls([
-            call(["ubuntu-advantage", "detach", "--assume-yes"])
+        self._assert_has_calls_env("check_call", [
+            ["ubuntu-advantage", "detach", "--assume-yes"],
         ])
         self.assertEqual(self.mocks["call"].call_count, 0)
         self.assertIsNone(self.harness.charm._state.hashed_token)
@@ -315,8 +318,8 @@ class TestCharm(TestCase):
         ]
         self.harness.update_config({"token": "test-token"})
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
+        self._assert_has_calls_env("call", [
+            ["ubuntu-advantage", "attach", "test-token"],
         ])
         self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
 
@@ -326,16 +329,16 @@ class TestCharm(TestCase):
             STATUS_ATTACHED
         ]
         self.harness.update_config({"token": "test-token\n"})
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
+        self._assert_has_calls_env("call", [
+            ["ubuntu-advantage", "attach", "test-token"],
         ])
         self.assertEqual(self.harness.charm._state.hashed_token,
                          "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
 
     def test_config_changed_ppa_contains_newline(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable\n"})
-        self.mocks["check_call"].assert_has_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"]),
+        self._assert_has_calls_env("check_call", [
+            ["add-apt-repository", "--yes", "ppa:ua-client/stable"],
         ])
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
 
@@ -373,8 +376,8 @@ class TestCharm(TestCase):
             STATUS_ATTACHED
         ]
         self.harness.update_config({"token": "test-token"})
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
+        self._assert_has_calls_env("call", [
+            ["ubuntu-advantage", "attach", "test-token"],
         ])
         self.assertEqual(self.harness.charm._state.hashed_token,
                          "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
@@ -399,11 +402,11 @@ class TestCharm(TestCase):
         """)
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        self.mocks["check_call"].assert_has_calls([
-            call(["ubuntu-advantage", "detach", "--assume-yes"])
+        self._assert_has_calls_env("check_call", [
+            ["ubuntu-advantage", "detach", "--assume-yes"],
         ])
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
+        self._assert_has_calls_env("call", [
+            ["ubuntu-advantage", "attach", "test-token"],
         ])
         self.assertEqual(self.harness.model.unit.status,
                          ActiveStatus("Attached (esm-apps,esm-infra,livepatch)"))
@@ -460,3 +463,8 @@ class TestCharm(TestCase):
         handle.truncate.assert_called_once()
         self.mocks["call"].assert_not_called()
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
+
+    def _assert_has_calls_env(self, mock_key, call_args_list):
+        self.mocks[mock_key].assert_has_calls(
+            [call(args, env=self.env) for args in call_args_list]
+        )
