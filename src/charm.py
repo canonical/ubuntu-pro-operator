@@ -6,9 +6,9 @@
 import hashlib
 import json
 import logging
+import os
 import subprocess
 import yaml
-import os
 
 from ops.charm import CharmBase
 from ops.framework import StoredState
@@ -29,15 +29,15 @@ def remove_ppa(ppa, env):
     subprocess.check_call(["add-apt-repository", "--remove", "--yes", ppa], env=env)
 
 
-def install_package(package, env):
+def install_package(package):
     """Install specified apt package (after performing an apt update)"""
-    subprocess.check_call(["apt", "update"], env=env)
-    subprocess.check_call(["apt", "install", "--yes", "--quiet", package], env=env)
+    subprocess.check_call(["apt", "update"])
+    subprocess.check_call(["apt", "install", "--yes", "--quiet", package])
 
 
-def remove_package(package, env):
+def remove_package(package):
     """Remove specified apt package"""
-    subprocess.check_call(["apt", "remove", "--yes", "--quiet", package], env=env)
+    subprocess.check_call(["apt", "remove", "--yes", "--quiet", package])
 
 
 def update_configuration(contract_url):
@@ -50,20 +50,19 @@ def update_configuration(contract_url):
         f.truncate()
 
 
-def detach_subscription(env):
+def detach_subscription():
     """Detach from any ubuntu-advantage subscription"""
-    subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"], env=env)
+    subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
 
 
-def attach_subscription(token, env):
+def attach_subscription(token):
     """Attach an ubuntu-advantage subscription using the specified token"""
-    return subprocess.call(["ubuntu-advantage", "attach", token], env=env)
+    return subprocess.call(["ubuntu-advantage", "attach", token])
 
 
-def get_status_output(env):
+def get_status_output():
     """Return the parsed output from ubuntu-advantage status"""
-    output = subprocess.check_output(
-        ["ubuntu-advantage", "status", "--all", "--format", "json"], env=env)
+    output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"])
     # handle different return type from xenial
     if isinstance(output, bytes):
         output = output.decode("utf-8")
@@ -81,8 +80,7 @@ class UbuntuAdvantageCharm(CharmBase):
             contract_url=None,
             hashed_token=None,
             package_needs_installing=True,
-            ppa=None,
-            env=self.env)
+            ppa=None)
 
         self.framework.observe(self.on.config_changed, self.config_changed)
 
@@ -92,6 +90,17 @@ class UbuntuAdvantageCharm(CharmBase):
         self.env['http_proxy'] = self.env.get('JUJU_CHARM_HTTP_PROXY', '')
         self.env['https_proxy'] = self.env.get('JUJU_CHARM_HTTPS_PROXY', '')
         self.env['no_proxy'] = self.env.get('JUJU_CHARM_NO_PROXY', '')
+
+        # The values for 'http_proxy' and 'https_proxy' will be used for the
+        # PPA install/remove operations (passed as environment variables), as
+        # well as for configuring the UA client.
+        # The value for 'no_proxy' is only used by the PPA install/remove
+        # operations (passed as an environment variable).
+
+        # log proxy environment variables for debugging
+        for envvar, value in self.env.items():
+            if envvar.endswith("proxy".lower()):
+                logger.debug("Envvar '%s' => '%s'", envvar, value)
 
     def config_changed(self, event):
         """Install and configure ubuntu-advantage tools and attachment"""
@@ -112,14 +121,14 @@ class UbuntuAdvantageCharm(CharmBase):
 
         if old_ppa and old_ppa != ppa:
             logger.info("Removing previously installed ppa (%s)", old_ppa)
-            remove_ppa(old_ppa, self._state.env)
+            remove_ppa(old_ppa, self.env)
             self._state.ppa = None
             # If ppa is changed, want to remove the previous version of the package for consistency
             self._state.package_needs_installing = True
 
         if ppa and ppa != old_ppa:
             logger.info("Installing ppa: %s", ppa)
-            install_ppa(ppa, self._state.env)
+            install_ppa(ppa, self.env)
             self._state.ppa = ppa
             # If ppa is changed, want to force an install of the package for potential updates
             self._state.package_needs_installing = True
@@ -128,9 +137,9 @@ class UbuntuAdvantageCharm(CharmBase):
         """Install apt package if necessary"""
         if self._state.package_needs_installing:
             logger.info("Removing package ubuntu-advantage-tools")
-            remove_package("ubuntu-advantage-tools", self._state.env)
+            remove_package("ubuntu-advantage-tools")
             logger.info("Installing package ubuntu-advantage-tools")
-            install_package("ubuntu-advantage-tools", self._state.env)
+            install_package("ubuntu-advantage-tools")
             self._state.package_needs_installing = False
 
     def _handle_subscription_state(self):
@@ -144,10 +153,15 @@ class UbuntuAdvantageCharm(CharmBase):
         old_contract_url = self._state.contract_url
         config_changed = contract_url != old_contract_url
 
-        status = get_status_output(self._state.env)
+        # Add the proxy configuration to the UA client.
+        # This is needed for attach/detach/status commands used by the charm,
+        # as well as regular tool operations.
+        self._configure_ua_proxy()
+
+        status = get_status_output()
         if status["attached"] and (config_changed or token_changed):
             logger.info("Detaching ubuntu-advantage subscription")
-            detach_subscription(self._state.env)
+            detach_subscription()
             self._state.hashed_token = None
 
         if config_changed:
@@ -160,7 +174,7 @@ class UbuntuAdvantageCharm(CharmBase):
             return
         elif config_changed or token_changed:
             logger.info("Attaching ubuntu-advantage subscription")
-            return_code = attach_subscription(token, self._state.env)
+            return_code = attach_subscription(token)
             if return_code != 0:
                 message = "Error attaching, possibly an invalid token or contract_url?"
                 self.unit.status = BlockedStatus(message)
@@ -169,13 +183,25 @@ class UbuntuAdvantageCharm(CharmBase):
 
     def _handle_status_state(self):
         """Parse status output to determine which services are active"""
-        status = get_status_output(self._state.env)
+        status = get_status_output()
         services = []
         for service in status.get("services"):
             if service.get("status") == "enabled":
                 services.append(service.get("name"))
         message = "Attached (" + ",".join(services) + ")"
         self.unit.status = ActiveStatus(message)
+
+    def _configure_ua_proxy(self):
+        """Configure the proxy options for the ubuntu-advantage client"""
+        for config_key in ("http_proxy", "https_proxy"):
+            subprocess.check_call(
+                [
+                    "ubuntu-advantage",
+                    "config",
+                    "set",
+                    "{}={}".format(config_key, self.env[config_key]),
+                ]
+            )
 
 
 if __name__ == "__main__":  # pragma: nocover
