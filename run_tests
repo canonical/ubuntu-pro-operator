@@ -1,17 +1,18 @@
 #!/bin/sh -e
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
+PYTHONPATH_INCLUDES="src:lib"
 
 if [ -z "$VIRTUAL_ENV" -a -d venv/ ]; then
     . venv/bin/activate
 fi
 
 if [ -z "$PYTHONPATH" ]; then
-    export PYTHONPATH=src
+    export PYTHONPATH="$PYTHONPATH_INCLUDES"
 else
-    export PYTHONPATH="src:$PYTHONPATH"
+    export PYTHONPATH="$PYTHONPATH_INCLUDES:$PYTHONPATH"
 fi
 
-flake8
+flake8 --extend-exclude operator_libs_linux
 coverage run --source=src -m unittest -v "$@"
 coverage report -m
