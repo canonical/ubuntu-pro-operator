@@ -80,7 +80,8 @@ class TestCharm(TestCase):
             "check_call": patch("subprocess.check_call").start(),
             "check_output": patch("subprocess.check_output").start(),
             "open": patch("builtins.open").start(),
-            "environ": patch.dict("os.environ", clear=True).start()
+            "environ": patch.dict("os.environ", clear=True).start(),
+            "apt": patch("charm.apt").start()
         }
         self.mocks["check_output"].side_effect = [
             STATUS_DETACHED
@@ -100,25 +101,21 @@ class TestCharm(TestCase):
 
     def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 6)
+        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
             call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ]))
+        self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
     def test_config_changed_ppa_updated(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 6)
+        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
             call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ]))
+        self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
@@ -126,29 +123,26 @@ class TestCharm(TestCase):
             STATUS_DETACHED
         ]
         self.mocks["check_call"].reset_mock()
+        self.mocks["apt"].reset_mock()
         self.harness.update_config({"ppa": "ppa:different-client/unstable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 7)
+        self.assertEqual(self.mocks["check_call"].call_count, 4)
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
             call(["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
                  env=self.env),
             call(["add-apt-repository", "--yes", "ppa:different-client/unstable"],
                  env=self.env),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ]))
+        self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:different-client/unstable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
     def test_config_changed_ppa_unmodified(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 6)
+        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
             call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ]))
+        self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
@@ -165,30 +159,27 @@ class TestCharm(TestCase):
 
     def test_config_changed_ppa_unset(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 6)
+        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
             call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ]))
+        self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
+        self.mocks["apt"].reset_mock()
         self.mocks["check_output"].side_effect = [
             STATUS_DETACHED
         ]
         self.harness.update_config({"ppa": ""})
-        self.assertEqual(self.mocks["check_call"].call_count, 6)
+        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
             call(["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
                  env=self.env),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ]))
+        self._assert_apt_calls()
         self.assertIsNone(self.harness.charm._state.ppa)
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
@@ -232,14 +223,12 @@ class TestCharm(TestCase):
             STATUS_ATTACHED
         ]
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(self.mocks["check_call"].call_count, 6)
+        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
             call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-            call(["apt", "remove", "--yes", "--quiet", "ubuntu-advantage-tools"]),
-            call(["apt", "update"]),
-            call(["apt", "install", "--yes", "--quiet", "ubuntu-advantage-tools"])
         ]))
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
+        self._assert_apt_calls()
         handle = self.mocks["open"]()
         expected = dedent("""\
             contract_url: https://contracts.canonical.com
@@ -505,3 +494,12 @@ class TestCharm(TestCase):
             ),
         ]
         return call_list + proxy_calls if append else proxy_calls + call_list
+
+    def _assert_apt_calls(self):
+        """Helper to run the assertions for apt install/remove"""
+        self.mocks["apt"].remove_package.assert_called_once_with(
+            "ubuntu-advantage-tools"
+        )
+        self.mocks["apt"].add_package.assert_called_once_with(
+            "ubuntu-advantage-tools", update_cache=True
+        )

@@ -10,6 +10,7 @@ import os
 import subprocess
 import yaml
 
+from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
@@ -27,17 +28,6 @@ def install_ppa(ppa, env):
 def remove_ppa(ppa, env):
     """Remove specified ppa"""
     subprocess.check_call(["add-apt-repository", "--remove", "--yes", ppa], env=env)
-
-
-def install_package(package):
-    """Install specified apt package (after performing an apt update)"""
-    subprocess.check_call(["apt", "update"])
-    subprocess.check_call(["apt", "install", "--yes", "--quiet", package])
-
-
-def remove_package(package):
-    """Remove specified apt package"""
-    subprocess.check_call(["apt", "remove", "--yes", "--quiet", package])
 
 
 def update_configuration(contract_url):
@@ -137,9 +127,9 @@ class UbuntuAdvantageCharm(CharmBase):
         """Install apt package if necessary"""
         if self._state.package_needs_installing:
             logger.info("Removing package ubuntu-advantage-tools")
-            remove_package("ubuntu-advantage-tools")
+            apt.remove_package("ubuntu-advantage-tools")
             logger.info("Installing package ubuntu-advantage-tools")
-            install_package("ubuntu-advantage-tools")
+            apt.add_package("ubuntu-advantage-tools", update_cache=True)
             self._state.package_needs_installing = False
 
     def _handle_subscription_state(self):
