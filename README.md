@@ -11,24 +11,3 @@ Be sure to replace `<token>` with a valid value from [the Ubuntu Advantage websi
     juju deploy ubuntu
     juju deploy ubuntu-advantage --config token=<token>
     juju add-relation ubuntu ubuntu-advantage
-
-## Developing
-
-Create and activate a virtualenv with the development requirements:
-
-    virtualenv -p python3 venv
-    source venv/bin/activate
-    pip install -r requirements-dev.txt
-
-## Testing
-
-The Python operator framework includes a very nice harness for testing
-operator behaviour without full deployment. To run the static validations and unit tests just execute
-
-    tox
-
-or 
-
-    tox -e integration
-
-to run the integration tests instead
