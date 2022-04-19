@@ -1,37 +1,37 @@
 #!/usr/bin/env python3
-
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
+
+"""Charmed Operator to enable Ubuntu Advantage (https://ubuntu.com/advantage) subscriptions."""
 
 import hashlib
 import json
 import logging
 import os
 import subprocess
-import yaml
 
+import yaml
 from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 
-
 logger = logging.getLogger(__name__)
 
 
 def install_ppa(ppa, env):
-    """Install specified ppa"""
+    """Install specified ppa."""
     subprocess.check_call(["add-apt-repository", "--yes", ppa], env=env)
 
 
 def remove_ppa(ppa, env):
-    """Remove specified ppa"""
+    """Remove specified ppa."""
     subprocess.check_call(["add-apt-repository", "--remove", "--yes", ppa], env=env)
 
 
 def update_configuration(contract_url):
-    """Write the contract_url to the uaclient configuration file"""
+    """Write the contract_url to the uaclient configuration file."""
     with open("/etc/ubuntu-advantage/uaclient.conf", "r+") as f:
         client_config = yaml.safe_load(f)
         client_config["contract_url"] = contract_url
@@ -41,17 +41,17 @@ def update_configuration(contract_url):
 
 
 def detach_subscription():
-    """Detach from any ubuntu-advantage subscription"""
+    """Detach from any ubuntu-advantage subscription."""
     subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
 
 
 def attach_subscription(token):
-    """Attach an ubuntu-advantage subscription using the specified token"""
+    """Attach an ubuntu-advantage subscription using the specified token."""
     return subprocess.call(["ubuntu-advantage", "attach", token])
 
 
 def get_status_output():
-    """Return the parsed output from ubuntu-advantage status"""
+    """Return the parsed output from ubuntu-advantage status."""
     output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"])
     # handle different return type from xenial
     if isinstance(output, bytes):
@@ -60,26 +60,25 @@ def get_status_output():
 
 
 class UbuntuAdvantageCharm(CharmBase):
-    """Charm to handle ubuntu-advantage installation and configuration"""
+    """Charm to handle ubuntu-advantage installation and configuration."""
+
     _state = StoredState()
 
     def __init__(self, *args):
         super().__init__(*args)
         self._setup_proxy_env()
         self._state.set_default(
-            contract_url=None,
-            hashed_token=None,
-            package_needs_installing=True,
-            ppa=None)
+            contract_url=None, hashed_token=None, package_needs_installing=True, ppa=None
+        )
 
         self.framework.observe(self.on.config_changed, self.config_changed)
 
     def _setup_proxy_env(self):
-        """Setup proxy variables from model"""
+        """Setup proxy variables from model."""
         self.env = dict(os.environ)
-        self.env['http_proxy'] = self.env.get('JUJU_CHARM_HTTP_PROXY', '')
-        self.env['https_proxy'] = self.env.get('JUJU_CHARM_HTTPS_PROXY', '')
-        self.env['no_proxy'] = self.env.get('JUJU_CHARM_NO_PROXY', '')
+        self.env["http_proxy"] = self.env.get("JUJU_CHARM_HTTP_PROXY", "")
+        self.env["https_proxy"] = self.env.get("JUJU_CHARM_HTTPS_PROXY", "")
+        self.env["no_proxy"] = self.env.get("JUJU_CHARM_NO_PROXY", "")
 
         # The values for 'http_proxy' and 'https_proxy' will be used for the
         # PPA install/remove operations (passed as environment variables), as
@@ -93,7 +92,7 @@ class UbuntuAdvantageCharm(CharmBase):
                 logger.debug("Envvar '%s' => '%s'", envvar, value)
 
     def config_changed(self, event):
-        """Install and configure ubuntu-advantage tools and attachment"""
+        """Install and configure ubuntu-advantage tools and attachment."""
         logger.info("Beginning config_changed")
         self.unit.status = MaintenanceStatus("Configuring")
         self._handle_ppa_state()
@@ -105,7 +104,7 @@ class UbuntuAdvantageCharm(CharmBase):
         logger.info("Finished config_changed")
 
     def _handle_ppa_state(self):
-        """Handle installing/removing ppa based on configuration and state"""
+        """Handle installing/removing ppa based on configuration and state."""
         ppa = self.config.get("ppa", "").strip()
         old_ppa = self._state.ppa
 
@@ -124,7 +123,7 @@ class UbuntuAdvantageCharm(CharmBase):
             self._state.package_needs_installing = True
 
     def _handle_package_state(self):
-        """Install apt package if necessary"""
+        """Install apt package if necessary."""
         if self._state.package_needs_installing:
             logger.info("Removing package ubuntu-advantage-tools")
             apt.remove_package("ubuntu-advantage-tools")
@@ -133,7 +132,7 @@ class UbuntuAdvantageCharm(CharmBase):
             self._state.package_needs_installing = False
 
     def _handle_subscription_state(self):
-        """Handle uaclient configuration and subscription attachment"""
+        """Handle uaclient configuration and subscription attachment."""
         token = self.config.get("token", "").strip()
         hashed_token = hashlib.sha256(token.encode("utf-8")).hexdigest()
         old_hashed_token = self._state.hashed_token
@@ -172,7 +171,7 @@ class UbuntuAdvantageCharm(CharmBase):
             self._state.hashed_token = hashed_token
 
     def _handle_status_state(self):
-        """Parse status output to determine which services are active"""
+        """Parse status output to determine which services are active."""
         status = get_status_output()
         services = []
         for service in status.get("services"):
@@ -182,7 +181,7 @@ class UbuntuAdvantageCharm(CharmBase):
         self.unit.status = ActiveStatus(message)
 
     def _configure_ua_proxy(self):
-        """Configure the proxy options for the ubuntu-advantage client"""
+        """Configure the proxy options for the ubuntu-advantage client."""
         for config_key in ("http_proxy", "https_proxy"):
             subprocess.check_call(
                 [

@@ -12,24 +12,14 @@ from ops.testing import Harness
 
 from charm import UbuntuAdvantageCharm
 
-
 STATUS_ATTACHED = json.dumps(
     {
         "attached": True,
         "services": [
-            {
-                "name": "esm-apps",
-                "status": "enabled"
-            },
-            {
-                "name": "esm-infra",
-                "status": "enabled"
-            },
-            {
-                "name": "livepatch",
-                "status": "enabled"
-            }
-        ]
+            {"name": "esm-apps", "status": "enabled"},
+            {"name": "esm-infra", "status": "enabled"},
+            {"name": "livepatch", "status": "enabled"},
+        ],
     }
 )
 
@@ -38,19 +28,10 @@ STATUS_DETACHED = json.dumps(
     {
         "attached": False,
         "services": [
-            {
-                "name": "esm-apps",
-                "available": "yes"
-            },
-            {
-                "name": "esm-infra",
-                "available": "yes"
-            },
-            {
-                "name": "livepatch",
-                "available": "yes"
-            }
-        ]
+            {"name": "esm-apps", "available": "yes"},
+            {"name": "esm-infra", "available": "yes"},
+            {"name": "livepatch", "available": "yes"},
+        ],
     }
 )
 
@@ -81,11 +62,9 @@ class TestCharm(TestCase):
             "check_output": patch("subprocess.check_output").start(),
             "open": patch("builtins.open").start(),
             "environ": patch.dict("os.environ", clear=True).start(),
-            "apt": patch("charm.apt").start()
+            "apt": patch("charm.apt").start(),
         }
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED]
         self.mocks["call"].return_value = 0
         mock_open(self.mocks["open"], read_data=DEFAULT_CLIENT_CONFIG)
         self.harness = Harness(UbuntuAdvantageCharm)
@@ -94,17 +73,22 @@ class TestCharm(TestCase):
         self.env = self.harness.charm.env
 
     def test_config_defaults(self):
-        self.assertEqual(self.harness.charm.config.get("contract_url"),
-                         "https://contracts.canonical.com")
+        self.assertEqual(
+            self.harness.charm.config.get("contract_url"), "https://contracts.canonical.com"
+        )
         self.assertEqual(self.harness.charm.config.get("ppa"), "ppa:ua-client/stable")
         self.assertEqual(self.harness.charm.config.get("token"), "")
 
     def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-        ]))
+        self.mocks["check_call"].assert_has_calls(
+            self._add_ua_proxy_setup_calls(
+                [
+                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                ]
+            )
+        )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
@@ -112,26 +96,36 @@ class TestCharm(TestCase):
     def test_config_changed_ppa_updated(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-        ]))
+        self.mocks["check_call"].assert_has_calls(
+            self._add_ua_proxy_setup_calls(
+                [
+                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                ]
+            )
+        )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED]
         self.mocks["check_call"].reset_mock()
         self.mocks["apt"].reset_mock()
         self.harness.update_config({"ppa": "ppa:different-client/unstable"})
         self.assertEqual(self.mocks["check_call"].call_count, 4)
-        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
-            call(["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
-                 env=self.env),
-            call(["add-apt-repository", "--yes", "ppa:different-client/unstable"],
-                 env=self.env),
-        ]))
+        self.mocks["check_call"].assert_has_calls(
+            self._add_ua_proxy_setup_calls(
+                [
+                    call(
+                        ["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
+                        env=self.env,
+                    ),
+                    call(
+                        ["add-apt-repository", "--yes", "ppa:different-client/unstable"],
+                        env=self.env,
+                    ),
+                ]
+            )
+        )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:different-client/unstable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
@@ -139,18 +133,20 @@ class TestCharm(TestCase):
     def test_config_changed_ppa_unmodified(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-        ]))
+        self.mocks["check_call"].assert_has_calls(
+            self._add_ua_proxy_setup_calls(
+                [
+                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                ]
+            )
+        )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED]
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 2)
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([]))
@@ -160,9 +156,13 @@ class TestCharm(TestCase):
     def test_config_changed_ppa_unset(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-        ]))
+        self.mocks["check_call"].assert_has_calls(
+            self._add_ua_proxy_setup_calls(
+                [
+                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                ]
+            )
+        )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
@@ -170,22 +170,27 @@ class TestCharm(TestCase):
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
         self.mocks["apt"].reset_mock()
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED]
         self.harness.update_config({"ppa": ""})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
-            call(["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
-                 env=self.env),
-        ]))
+        self.mocks["check_call"].assert_has_calls(
+            self._add_ua_proxy_setup_calls(
+                [
+                    call(
+                        ["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
+                        env=self.env,
+                    ),
+                ]
+            )
+        )
         self._assert_apt_calls()
         self.assertIsNone(self.harness.charm._state.ppa)
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
     def test_config_changed_ppa_apt_failure(self):
-        self.mocks["check_call"].side_effect = CalledProcessError("apt failure",
-                                                                  "add-apt-repository")
+        self.mocks["check_call"].side_effect = CalledProcessError(
+            "apt failure", "add-apt-repository"
+        )
         with self.assertRaises(CalledProcessError):
             self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertIsNone(self.harness.charm._state.ppa)
@@ -193,78 +198,81 @@ class TestCharm(TestCase):
         self.assertIsInstance(self.harness.model.unit.status, MaintenanceStatus)
 
     def test_config_changed_token_unattached(self):
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent("""\
+        expected = dedent(
+            """\
             contract_url: https://contracts.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """)
+        """
+        )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
-        ])
-        self.assertEqual(self.harness.charm._state.hashed_token,
-                         "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
-        self.assertEqual(self.harness.model.unit.status,
-                         ActiveStatus("Attached (esm-apps,esm-infra,livepatch)"))
+        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(
+            self.harness.charm._state.hashed_token,
+            "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
+        )
+        self.assertEqual(
+            self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
+        )
 
     def test_config_changed_token_reattach(self):
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-        ]))
+        self.mocks["check_call"].assert_has_calls(
+            self._add_ua_proxy_setup_calls(
+                [
+                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                ]
+            )
+        )
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         self._assert_apt_calls()
         handle = self.mocks["open"]()
-        expected = dedent("""\
+        expected = dedent(
+            """\
             contract_url: https://contracts.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """)
+        """
+        )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
-        ])
-        self.assertEqual(self.harness.charm._state.hashed_token,
-                         "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
+        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(
+            self.harness.charm._state.hashed_token,
+            "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
+        )
 
         self.mocks["call"].reset_mock()
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
-        self.mocks["check_output"].side_effect = [
-            STATUS_ATTACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_ATTACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token-2"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
-            call(["ubuntu-advantage", "detach", "--assume-yes"])
-        ], append=False))
+        self.mocks["check_call"].assert_has_calls(
+            self._add_ua_proxy_setup_calls(
+                [call(["ubuntu-advantage", "detach", "--assume-yes"])], append=False
+            )
+        )
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token-2"])
-        ])
-        self.assertEqual(self.harness.charm._state.hashed_token,
-                         "ab8a83efb364bf3f6739348519b53c8e8e0f7b4c06b6eeb881ad73dcf0059107")
-        self.assertEqual(self.harness.model.unit.status,
-                         ActiveStatus("Attached (esm-apps,esm-infra,livepatch)"))
+        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token-2"])])
+        self.assertEqual(
+            self.harness.charm._state.hashed_token,
+            "ab8a83efb364bf3f6739348519b53c8e8e0f7b4c06b6eeb881ad73dcf0059107",
+        )
+        self.assertEqual(
+            self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
+        )
 
     def test_config_changed_attach_failure(self):
         self.mocks["call"].return_value = 1
@@ -273,30 +281,26 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.model.unit.status, BlockedStatus(message))
 
     def test_config_changed_token_detach(self):
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token"})
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
-        ])
-        self.assertEqual(self.harness.charm._state.hashed_token,
-                         "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
+        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(
+            self.harness.charm._state.hashed_token,
+            "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
+        )
 
         self.mocks["call"].reset_mock()
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
-        self.mocks["check_output"].side_effect = [
-            STATUS_ATTACHED,
-            STATUS_DETACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_ATTACHED, STATUS_DETACHED]
         self.harness.update_config({"token": ""})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([
-            call(["ubuntu-advantage", "detach", "--assume-yes"])
-        ], append=False))
+        self.mocks["check_call"].assert_has_calls(
+            self._add_ua_proxy_setup_calls(
+                [call(["ubuntu-advantage", "detach", "--assume-yes"])], append=False
+            )
+        )
         self.assertEqual(self.mocks["call"].call_count, 0)
         self.assertIsNone(self.harness.charm._state.hashed_token)
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
@@ -307,132 +311,118 @@ class TestCharm(TestCase):
 
         self.mocks["call"].reset_mock()
         self.mocks["check_output"].reset_mock()
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token"})
         self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
-        ])
+        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
         self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
 
     def test_config_changed_token_contains_newline(self):
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token\n"})
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
-        ])
-        self.assertEqual(self.harness.charm._state.hashed_token,
-                         "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
+        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(
+            self.harness.charm._state.hashed_token,
+            "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
+        )
 
     def test_config_changed_ppa_contains_newline(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable\n"})
-        self.mocks["check_call"].assert_has_calls([
-            call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-        ])
+        self.mocks["check_call"].assert_has_calls(
+            [
+                call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+            ]
+        )
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
 
     def test_config_changed_check_output_returns_bytes(self):
         self.mocks["check_output"].side_effect = [
             bytes(STATUS_DETACHED, "utf-8"),
-            bytes(STATUS_ATTACHED, "utf-8")
+            bytes(STATUS_ATTACHED, "utf-8"),
         ]
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(self.harness.model.unit.status,
-                         ActiveStatus("Attached (esm-apps,esm-infra,livepatch)"))
+        self.assertEqual(
+            self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
+        )
 
     def test_config_changed_contract_url(self):
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent("""\
+        expected = dedent(
+            """\
             contract_url: https://contracts.staging.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """)
+        """
+        )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        self.assertEqual(self.harness.charm._state.contract_url,
-                         "https://contracts.staging.canonical.com")
+        self.assertEqual(
+            self.harness.charm._state.contract_url, "https://contracts.staging.canonical.com"
+        )
 
     def test_config_changed_contract_url_reattach(self):
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token"})
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
-        ])
-        self.assertEqual(self.harness.charm._state.hashed_token,
-                         "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e")
+        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(
+            self.harness.charm._state.hashed_token,
+            "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
+        )
 
         self.mocks["call"].reset_mock()
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
         self.mocks["open"].reset_mock()
-        self.mocks["check_output"].side_effect = [
-            STATUS_ATTACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_ATTACHED, STATUS_ATTACHED]
         mock_open(self.mocks["open"], read_data=DEFAULT_CLIENT_CONFIG)
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent("""\
+        expected = dedent(
+            """\
             contract_url: https://contracts.staging.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """)
+        """
+        )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        self.mocks["check_call"].assert_has_calls([
-            call(["ubuntu-advantage", "detach", "--assume-yes"])
-        ])
-        self.mocks["call"].assert_has_calls([
-            call(["ubuntu-advantage", "attach", "test-token"])
-        ])
-        self.assertEqual(self.harness.model.unit.status,
-                         ActiveStatus("Attached (esm-apps,esm-infra,livepatch)"))
+        self.mocks["check_call"].assert_has_calls(
+            [call(["ubuntu-advantage", "detach", "--assume-yes"])]
+        )
+        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(
+            self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
+        )
 
         self.mocks["call"].reset_mock()
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
         self.mocks["open"].reset_mock()
-        self.mocks["check_output"].side_effect = [
-            STATUS_ATTACHED,
-            STATUS_ATTACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_ATTACHED, STATUS_ATTACHED]
         mock_open(self.mocks["open"], read_data=DEFAULT_CLIENT_CONFIG)
         self.harness.update_config()
         self.mocks["open"].assert_not_called()
         self.mocks["call"].assert_not_called()
 
     def test_config_changed_unset_contract_url(self):
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED,
-            STATUS_DETACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_DETACHED]
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent("""\
+        expected = dedent(
+            """\
             contract_url: https://contracts.staging.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """)
+        """
+        )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.mocks["call"].assert_not_called()
@@ -441,19 +431,18 @@ class TestCharm(TestCase):
         self.mocks["call"].reset_mock()
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
-        self.mocks["check_output"].side_effect = [
-            STATUS_DETACHED,
-            STATUS_DETACHED
-        ]
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_DETACHED]
         self.harness.update_config({"contract_url": "https://contracts.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent("""\
+        expected = dedent(
+            """\
             contract_url: https://contracts.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """)
+        """
+        )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.mocks["call"].assert_not_called()
@@ -474,7 +463,7 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm.env["no_proxy"], TEST_NO_PROXY)
 
     def _add_ua_proxy_setup_calls(self, call_list, append=True):
-        """Helper to generate the calls used for UA proxy setup"""
+        """Helper to generate the calls used for UA proxy setup."""
         proxy_calls = [
             call(
                 [
@@ -496,10 +485,8 @@ class TestCharm(TestCase):
         return call_list + proxy_calls if append else proxy_calls + call_list
 
     def _assert_apt_calls(self):
-        """Helper to run the assertions for apt install/remove"""
-        self.mocks["apt"].remove_package.assert_called_once_with(
-            "ubuntu-advantage-tools"
-        )
+        """Helper to run the assertions for apt install/remove."""
+        self.mocks["apt"].remove_package.assert_called_once_with("ubuntu-advantage-tools")
         self.mocks["apt"].add_package.assert_called_once_with(
             "ubuntu-advantage-tools", update_cache=True
         )
