@@ -23,6 +23,12 @@ Create and activate a virtualenv with the development requirements:
 ## Testing
 
 The Python operator framework includes a very nice harness for testing
-operator behaviour without full deployment. Just `run_tests`:
+operator behaviour without full deployment. To run the static validations and unit tests just execute
 
-    ./run_tests
+    tox
+
+or 
+
+    tox -e integration
+
+to run the integration tests instead

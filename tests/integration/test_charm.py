@@ -1,4 +1,4 @@
-# Copyright 2021 Canonical Ltd.
+# Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 import pytest
@@ -22,4 +22,3 @@ async def test_build_and_deploy(ops_test: OpsTest):
 async def test_status(ops_test: OpsTest):
     assert ops_test.model.applications["ubuntu"].status == ActiveStatus.name
     assert ops_test.model.applications["ubuntu-advantage"].status == BlockedStatus.name
-    
