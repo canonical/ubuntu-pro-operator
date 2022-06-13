@@ -4,7 +4,7 @@
 *.charm
 *.py[cod]
 *.swp
-*.tox
 
 .coverage
+.tox
 __pycache__/
