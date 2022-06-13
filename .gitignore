@@ -6,4 +6,5 @@
 *.swp
 
 .coverage
+.tox
 __pycache__/
