@@ -5,6 +5,7 @@ series:
   - focal
   - bionic
   - xenial
+  - jammy
 subordinate: true
 requires:
   juju-info:
