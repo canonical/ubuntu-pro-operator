@@ -1,10 +1,9 @@
-/build
-/venv
-
+venv/
+build/
 *.charm
-*.py[cod]
-*.swp
-
+.tox/
 .coverage
-.tox
 __pycache__/
+*.py[cod]
+.idea
+.vscode/
