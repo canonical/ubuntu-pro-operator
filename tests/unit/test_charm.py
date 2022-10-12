@@ -480,7 +480,6 @@ class TestCharm(TestCase):
 
     def _assert_apt_calls(self):
         """Helper to run the assertions for apt install/remove."""
-        self.mocks["apt"].remove_package.assert_called_once_with("ubuntu-advantage-tools")
         self.mocks["apt"].add_package.assert_called_once_with(
             "ubuntu-advantage-tools", update_cache=True
         )
