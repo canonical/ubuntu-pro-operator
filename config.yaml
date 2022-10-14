@@ -1,10 +1,15 @@
+# This file defines charm config options, and populates the Configure tab on Charmhub.
+# If your charm does not require configuration options, delete this file entirely.
+#
+# See https://juju.is/docs/config for guidance.
+
 options:
   contract_url:
     default: "https://contracts.canonical.com"
     description: Contract service URL to use
     type: string
   ppa:
-    default: "ppa:ua-client/stable"
+    default: ""
     description: PPA from which to install the ubuntu-advantage-tools package
     type: string
   token:

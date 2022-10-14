@@ -76,7 +76,7 @@ class TestCharm(TestCase):
         self.assertEqual(
             self.harness.charm.config.get("contract_url"), "https://contracts.canonical.com"
         )
-        self.assertEqual(self.harness.charm.config.get("ppa"), "ppa:ua-client/stable")
+        self.assertEqual(self.harness.charm.config.get("ppa"), "")
         self.assertEqual(self.harness.charm.config.get("token"), "")
 
     def test_config_changed_ppa_new(self):
@@ -225,14 +225,8 @@ class TestCharm(TestCase):
     def test_config_changed_token_reattach(self):
         self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(
-            self._add_ua_proxy_setup_calls(
-                [
-                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
-                ]
-            )
-        )
+        self.assertEqual(self.mocks["check_call"].call_count, 2)
+        self._assert_apt_calls()
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         self._assert_apt_calls()
         handle = self.mocks["open"]()
@@ -485,8 +479,7 @@ class TestCharm(TestCase):
         return call_list + proxy_calls if append else proxy_calls + call_list
 
     def _assert_apt_calls(self):
-        """Helper to run the assertions for apt install/remove."""
-        self.mocks["apt"].remove_package.assert_called_once_with("ubuntu-advantage-tools")
+        """Helper to run the assertions for apt install"""
         self.mocks["apt"].add_package.assert_called_once_with(
             "ubuntu-advantage-tools", update_cache=True
         )

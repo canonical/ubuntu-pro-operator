@@ -125,8 +125,6 @@ class UbuntuAdvantageCharm(CharmBase):
     def _handle_package_state(self):
         """Install apt package if necessary."""
         if self._state.package_needs_installing:
-            logger.info("Removing package ubuntu-advantage-tools")
-            apt.remove_package("ubuntu-advantage-tools")
             logger.info("Installing package ubuntu-advantage-tools")
             apt.add_package("ubuntu-advantage-tools", update_cache=True)
             self._state.package_needs_installing = False
