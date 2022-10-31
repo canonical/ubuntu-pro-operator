@@ -479,7 +479,7 @@ class TestCharm(TestCase):
         return call_list + proxy_calls if append else proxy_calls + call_list
 
     def _assert_apt_calls(self):
-        """Helper to run the assertions for apt install"""
+        """Helper to run the assertions for apt install."""
         self.mocks["apt"].add_package.assert_called_once_with(
             "ubuntu-advantage-tools", update_cache=True
         )
