@@ -8,7 +8,6 @@ from pytest_operator.plugin import OpsTest
 
 @pytest.mark.abort_on_fail
 async def test_build_and_deploy(ops_test: OpsTest):
-
     charm = await ops_test.build_charm(".")
     await ops_test.model.deploy("ubuntu")
     await ops_test.model.deploy(charm, num_units=0)
