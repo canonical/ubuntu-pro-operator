@@ -145,16 +145,16 @@ class UbuntuAdvantageCharm(CharmBase):
         # as well as regular tool operations.
         self._configure_ua_proxy()
 
+        if config_changed:
+            logger.info("Updating uaclient.conf")
+            update_configuration(contract_url)
+            self._state.contract_url = contract_url
+
         status = get_status_output()
         if status["attached"] and (config_changed or token_changed):
             logger.info("Detaching ubuntu-advantage subscription")
             detach_subscription()
             self._state.hashed_token = None
-
-        if config_changed:
-            logger.info("Updating uaclient.conf")
-            update_configuration(contract_url)
-            self._state.contract_url = contract_url
 
         if not token:
             self.unit.status = BlockedStatus("No token configured")
