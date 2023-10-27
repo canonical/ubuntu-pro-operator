@@ -2,7 +2,7 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Charmed Operator to enable Ubuntu Advantage (https://ubuntu.com/advantage) subscriptions."""
+"""Charmed Operator to enable Ubuntu Pro (https://ubuntu.com/pro) subscriptions."""
 
 import hashlib
 import json

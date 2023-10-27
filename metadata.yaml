@@ -1,6 +1,6 @@
 name: ubuntu-advantage
 description: Ubuntu Advantage charm
-summary: This charm enables Ubuntu Advantage (https://ubuntu.com/advantage) subscriptions
+summary: This charm enables Ubuntu Pro (https://ubuntu.com/pro) subscriptions.
 series:
   - focal
   - bionic
