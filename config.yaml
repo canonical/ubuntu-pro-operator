@@ -16,3 +16,11 @@ options:
     default: ""
     description: Ubuntu Pro token obtained from https://ubuntu.com/pro.
     type: string
+  override-http-proxy:
+    default: ""
+    description: http-proxy which can override juju http-proxy
+    type: string
+  override-https-proxy:
+    default: ""
+    description: https-proxy which can override juju https-proxy
+    type: string
