@@ -76,8 +76,12 @@ class UbuntuAdvantageCharm(CharmBase):
     def _setup_proxy_env(self):
         """Setup proxy variables from model."""
         self.env = dict(os.environ)
-        self.env["http_proxy"] = self.env.get("JUJU_CHARM_HTTP_PROXY", "")
-        self.env["https_proxy"] = self.env.get("JUJU_CHARM_HTTPS_PROXY", "")
+        self.env["http_proxy"] = self.config.get("override-http-proxy") or self.env.get(
+            "JUJU_CHARM_HTTP_PROXY", ""
+        )
+        self.env["https_proxy"] = self.config.get("override-https-proxy") or self.env.get(
+            "JUJU_CHARM_HTTPS_PROXY", ""
+        )
         self.env["no_proxy"] = self.env.get("JUJU_CHARM_NO_PROXY", "")
 
         # The values for 'http_proxy' and 'https_proxy' will be used for the
@@ -95,6 +99,7 @@ class UbuntuAdvantageCharm(CharmBase):
         """Install and configure ubuntu-advantage tools and attachment."""
         logger.info("Beginning config_changed")
         self.unit.status = MaintenanceStatus("Configuring")
+        self._setup_proxy_env()
         self._handle_ppa_state()
         self._handle_package_state()
         self._handle_subscription_state()
@@ -181,14 +186,24 @@ class UbuntuAdvantageCharm(CharmBase):
     def _configure_ua_proxy(self):
         """Configure the proxy options for the ubuntu-advantage client."""
         for config_key in ("http_proxy", "https_proxy"):
-            subprocess.check_call(
-                [
-                    "ubuntu-advantage",
-                    "config",
-                    "set",
-                    "{}={}".format(config_key, self.env[config_key]),
-                ]
-            )
+            if self.env[config_key]:
+                subprocess.check_call(
+                    [
+                        "ubuntu-advantage",
+                        "config",
+                        "set",
+                        "{}={}".format(config_key, self.env[config_key]),
+                    ]
+                )
+            else:
+                subprocess.check_call(
+                    [
+                        "ubuntu-advantage",
+                        "config",
+                        "unset",
+                        config_key,
+                    ]
+                )
 
 
 if __name__ == "__main__":  # pragma: nocover

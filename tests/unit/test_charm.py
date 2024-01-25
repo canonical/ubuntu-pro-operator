@@ -442,6 +442,65 @@ class TestCharm(TestCase):
         self.mocks["call"].assert_not_called()
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
 
+    def test_config_changed_set_and_unset_proxy_override(self):
+        # Set proxy override once.
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED]
+        self.harness.update_config(
+            {
+                "override-http-proxy": "http://localhost:3128",
+                "override-https-proxy": "http://localhost:3128",
+            }
+        )
+        self.mocks["check_call"].assert_has_calls(
+            [
+                call(["ubuntu-advantage", "config", "set", "http_proxy=http://localhost:3128"]),
+                call(["ubuntu-advantage", "config", "set", "https_proxy=http://localhost:3128"]),
+            ]
+        )
+        self.mocks["check_call"].reset_mock()
+
+        # Set proxy override again.
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED]
+        self.harness.update_config(
+            {
+                "override-http-proxy": "http://squid.internal:3128",
+                "override-https-proxy": "http://squid.internal:3128",
+            }
+        )
+        self.mocks["check_call"].assert_has_calls(
+            [
+                call(
+                    ["ubuntu-advantage", "config", "set", "http_proxy=http://squid.internal:3128"]
+                ),
+                call(
+                    ["ubuntu-advantage", "config", "set", "https_proxy=http://squid.internal:3128"]
+                ),
+            ]
+        )
+        self.mocks["check_call"].reset_mock()
+
+        # Unset proxy override.
+        self.mocks["check_output"].side_effect = [STATUS_DETACHED]
+        self.harness.update_config({"override-http-proxy": "", "override-https-proxy": ""})
+        self.mocks["check_call"].assert_has_calls(
+            [
+                call(["ubuntu-advantage", "config", "unset", "http_proxy"]),
+                call(["ubuntu-advantage", "config", "unset", "https_proxy"]),
+            ]
+        )
+
+    def test_setup_proxy_config(self):
+        self.harness.update_config(
+            {
+                "override-http-proxy": TEST_PROXY_URL,
+                "override-https-proxy": TEST_PROXY_URL,
+            }
+        )
+
+        self.harness.charm._setup_proxy_env()
+        self.assertEqual(self.harness.charm.env["http_proxy"], TEST_PROXY_URL)
+        self.assertEqual(self.harness.charm.env["https_proxy"], TEST_PROXY_URL)
+
     def test_setup_proxy_env(self):
         self.mocks["environ"].update(
             {
@@ -458,24 +517,53 @@ class TestCharm(TestCase):
 
     def _add_ua_proxy_setup_calls(self, call_list, append=True):
         """Helper to generate the calls used for UA proxy setup."""
-        proxy_calls = [
-            call(
-                [
-                    "ubuntu-advantage",
-                    "config",
-                    "set",
-                    "http_proxy={}".format(self.env["http_proxy"]),
-                ]
-            ),
-            call(
-                [
-                    "ubuntu-advantage",
-                    "config",
-                    "set",
-                    "https_proxy={}".format(self.env["https_proxy"]),
-                ]
-            ),
-        ]
+        proxy_calls = []
+        if self.env["http_proxy"]:
+            proxy_calls.append(
+                call(
+                    [
+                        "ubuntu-advantage",
+                        "config",
+                        "set",
+                        "http_proxy={}".format(self.env["http_proxy"]),
+                    ]
+                )
+            )
+        else:
+            proxy_calls.append(
+                call(
+                    [
+                        "ubuntu-advantage",
+                        "config",
+                        "unset",
+                        "http_proxy",
+                    ]
+                )
+            )
+
+        if self.env["https_proxy"]:
+            proxy_calls.append(
+                call(
+                    [
+                        "ubuntu-advantage",
+                        "config",
+                        "set",
+                        "https_proxy={}".format(self.env["https_proxy"]),
+                    ]
+                )
+            )
+        else:
+            proxy_calls.append(
+                call(
+                    [
+                        "ubuntu-advantage",
+                        "config",
+                        "unset",
+                        "https_proxy",
+                    ]
+                )
+            )
+
         return call_list + proxy_calls if append else proxy_calls + call_list
 
     def _assert_apt_calls(self):
