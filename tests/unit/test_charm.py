@@ -5,7 +5,7 @@ import json
 from subprocess import CalledProcessError
 from textwrap import dedent
 from unittest import TestCase
-from unittest.mock import call, mock_open, patch
+from unittest.mock import MagicMock, call, mock_open, patch
 
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
@@ -60,12 +60,14 @@ class TestCharm(TestCase):
             "call": patch("subprocess.call").start(),
             "check_call": patch("subprocess.check_call").start(),
             "check_output": patch("subprocess.check_output").start(),
+            "run": patch("subprocess.run").start(),
             "open": patch("builtins.open").start(),
             "environ": patch.dict("os.environ", clear=True).start(),
             "apt": patch("charm.apt").start(),
         }
         self.mocks["check_output"].side_effect = [STATUS_DETACHED]
         self.mocks["call"].return_value = 0
+        self.mocks["run"].return_value = MagicMock(returncode=0, stderr="")
         mock_open(self.mocks["open"], read_data=DEFAULT_CLIENT_CONFIG)
         self.harness = Harness(UbuntuAdvantageCharm)
         self.addCleanup(self.harness.cleanup)
@@ -212,8 +214,10 @@ class TestCharm(TestCase):
         )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(self.mocks["run"].call_count, 1)
+        self.mocks["run"].assert_has_calls(
+            [call(["ubuntu-advantage", "attach", "test-token"], capture_output=True, text=True)]
+        )
         self.assertEqual(
             self.harness.charm._state.hashed_token,
             "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
@@ -240,14 +244,16 @@ class TestCharm(TestCase):
         )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(self.mocks["run"].call_count, 1)
+        self.mocks["run"].assert_has_calls(
+            [call(["ubuntu-advantage", "attach", "test-token"], capture_output=True, text=True)]
+        )
         self.assertEqual(
             self.harness.charm._state.hashed_token,
             "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
         )
 
-        self.mocks["call"].reset_mock()
+        self.mocks["run"].reset_mock()
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
         self.mocks["check_output"].side_effect = [STATUS_ATTACHED, STATUS_ATTACHED]
@@ -258,8 +264,10 @@ class TestCharm(TestCase):
                 [call(["ubuntu-advantage", "detach", "--assume-yes"])], append=False
             )
         )
-        self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token-2"])])
+        self.assertEqual(self.mocks["run"].call_count, 1)
+        self.mocks["run"].assert_has_calls(
+            [call(["ubuntu-advantage", "attach", "test-token-2"], capture_output=True, text=True)]
+        )
         self.assertEqual(
             self.harness.charm._state.hashed_token,
             "ab8a83efb364bf3f6739348519b53c8e8e0f7b4c06b6eeb881ad73dcf0059107",
@@ -269,22 +277,24 @@ class TestCharm(TestCase):
         )
 
     def test_config_changed_attach_failure(self):
-        self.mocks["call"].return_value = 1
+        self.mocks["run"].return_value = MagicMock(returncode=1, stderr="Invalid token")
         self.harness.update_config({"token": "test-token"})
-        message = "Error attaching, possibly an invalid token or contract_url?"
+        message = "Error attaching: Invalid token"
         self.assertEqual(self.harness.model.unit.status, BlockedStatus(message))
 
     def test_config_changed_token_detach(self):
         self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(self.mocks["run"].call_count, 1)
+        self.mocks["run"].assert_has_calls(
+            [call(["ubuntu-advantage", "attach", "test-token"], capture_output=True, text=True)]
+        )
         self.assertEqual(
             self.harness.charm._state.hashed_token,
             "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
         )
 
-        self.mocks["call"].reset_mock()
+        self.mocks["run"].reset_mock()
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
         self.mocks["check_output"].side_effect = [STATUS_ATTACHED, STATUS_DETACHED]
@@ -303,18 +313,22 @@ class TestCharm(TestCase):
         self.harness.update_config()
         self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
 
-        self.mocks["call"].reset_mock()
+        self.mocks["run"].reset_mock()
         self.mocks["check_output"].reset_mock()
         self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(self.mocks["call"].call_count, 1)
-        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.assertEqual(self.mocks["run"].call_count, 1)
+        self.mocks["run"].assert_has_calls(
+            [call(["ubuntu-advantage", "attach", "test-token"], capture_output=True, text=True)]
+        )
         self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
 
     def test_config_changed_token_contains_newline(self):
         self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token\n"})
-        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.mocks["run"].assert_has_calls(
+            [call(["ubuntu-advantage", "attach", "test-token"], capture_output=True, text=True)]
+        )
         self.assertEqual(
             self.harness.charm._state.hashed_token,
             "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
@@ -361,13 +375,15 @@ class TestCharm(TestCase):
     def test_config_changed_contract_url_reattach(self):
         self.mocks["check_output"].side_effect = [STATUS_DETACHED, STATUS_ATTACHED]
         self.harness.update_config({"token": "test-token"})
-        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.mocks["run"].assert_has_calls(
+            [call(["ubuntu-advantage", "attach", "test-token"], capture_output=True, text=True)]
+        )
         self.assertEqual(
             self.harness.charm._state.hashed_token,
             "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
         )
 
-        self.mocks["call"].reset_mock()
+        self.mocks["run"].reset_mock()
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
         self.mocks["open"].reset_mock()
@@ -389,12 +405,14 @@ class TestCharm(TestCase):
         self.mocks["check_call"].assert_has_calls(
             [call(["ubuntu-advantage", "detach", "--assume-yes"])]
         )
-        self.mocks["call"].assert_has_calls([call(["ubuntu-advantage", "attach", "test-token"])])
+        self.mocks["run"].assert_has_calls(
+            [call(["ubuntu-advantage", "attach", "test-token"], capture_output=True, text=True)]
+        )
         self.assertEqual(
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
         )
 
-        self.mocks["call"].reset_mock()
+        self.mocks["run"].reset_mock()
         self.mocks["check_call"].reset_mock()
         self.mocks["check_output"].reset_mock()
         self.mocks["open"].reset_mock()

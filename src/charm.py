@@ -47,7 +47,8 @@ def detach_subscription():
 
 def attach_subscription(token):
     """Attach an ubuntu-advantage subscription using the specified token."""
-    return subprocess.call(["ubuntu-advantage", "attach", token])
+    result = subprocess.run(["ubuntu-advantage", "attach", token], capture_output=True, text=True)
+    return result.returncode, result.stderr
 
 
 def get_status_output():
@@ -166,9 +167,9 @@ class UbuntuAdvantageCharm(CharmBase):
             return
         elif config_changed or token_changed:
             logger.info("Attaching ubuntu-advantage subscription")
-            return_code = attach_subscription(token)
+            return_code, stderr = attach_subscription(token)
             if return_code != 0:
-                message = "Error attaching, possibly an invalid token or contract_url?"
+                message = f"Error attaching: {stderr.strip()}"
                 self.unit.status = BlockedStatus(message)
                 return
             self._state.hashed_token = hashed_token

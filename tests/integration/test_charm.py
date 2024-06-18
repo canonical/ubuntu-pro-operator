@@ -21,3 +21,16 @@ async def test_build_and_deploy(ops_test: OpsTest):
 async def test_status(ops_test: OpsTest):
     assert ops_test.model.applications["ubuntu"].status == ActiveStatus.name
     assert ops_test.model.applications["ubuntu-advantage"].status == BlockedStatus.name
+
+
+async def test_attach_invalid_token(ops_test: OpsTest):
+    charm = ops_test.model.applications["ubuntu-advantage"]
+    await charm.set_config({"token": ""})
+    await ops_test.model.wait_for_idle()
+
+    await charm.set_config({"token": "new-token-2"})
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == BlockedStatus.name
+    assert "Invalid token" in unit.workload_status_message
