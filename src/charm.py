@@ -53,7 +53,13 @@ def attach_subscription(token):
 
 def get_status_output():
     """Return the parsed output from ubuntu-advantage status."""
-    output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"])
+    result = subprocess.run(
+        ["ubuntu-advantage", "status", "--all", "--format", "json"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        logger.error("Error running ubuntu-advantage status: %s", result.stderr.strip())
+        raise subprocess.CalledProcessError(result.returncode, result.args, result.stderr)
+    output = result.stdout
     # handle different return type from xenial
     if isinstance(output, bytes):
         output = output.decode("utf-8")
@@ -156,7 +162,11 @@ class UbuntuAdvantageCharm(CharmBase):
             update_configuration(contract_url)
             self._state.contract_url = contract_url
 
-        status = get_status_output()
+        try:
+            status = get_status_output()
+        except subprocess.CalledProcessError as e:
+            self.unit_status = BlockedStatus(str(e))
+            return
         if status["attached"] and (config_changed or token_changed):
             logger.info("Detaching ubuntu-advantage subscription")
             detach_subscription()
@@ -170,6 +180,7 @@ class UbuntuAdvantageCharm(CharmBase):
             return_code, stderr = attach_subscription(token)
             if return_code != 0:
                 message = f"Error attaching: {stderr.strip()}"
+                logger.error(message)
                 self.unit.status = BlockedStatus(message)
                 return
             self._state.hashed_token = hashed_token
