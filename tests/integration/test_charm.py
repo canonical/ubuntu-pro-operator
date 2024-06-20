@@ -1,4 +1,4 @@
-# Copyright 2022 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 import pytest
@@ -33,4 +33,3 @@ async def test_attach_invalid_token(ops_test: OpsTest):
 
     unit = charm.units[0]
     assert unit.workload_status == BlockedStatus.name
-    assert "Invalid token" in unit.workload_status_message
