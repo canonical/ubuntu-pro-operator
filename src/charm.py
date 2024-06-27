@@ -47,6 +47,27 @@ def detach_subscription():
     """Detach from any ubuntu-advantage subscription."""
     subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
 
+def set_livepatch_server(server):
+    """Set the livepatch server."""
+    result = subprocess.run(["canonical-livepatch", "config", f"remote-server={server}"], 
+                         capture_output=True, 
+                         text=True)
+    if result.returncode != 0:
+        logger.error("Error setting canonical-livepatch server: %s", result.stderr)
+        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+    return result.returncode, result.stderr
+
+def enable_livepatch(token):
+    """Enable livepatch with the specified token."""
+    result = subprocess.run(["canonical-livepatch", "enable", token], capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.error("Error running canonical-livepatch enable: %s", result.stderr)
+        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+    return result.returncode, result.stderr
+
+def install_livepatch():
+    """Install the canonical-livepatch package."""
+    subprocess.check_call(["sudo", "snap", "install", "canonical-livepatch"])
 
 @retry(ProcessExecutionError)
 def attach_subscription(token):
@@ -83,7 +104,8 @@ class UbuntuAdvantageCharm(CharmBase):
         super().__init__(*args)
         self._setup_proxy_env()
         self._state.set_default(
-            contract_url=None, hashed_token=None, package_needs_installing=True, ppa=None
+            contract_url=None, hashed_token=None, package_needs_installing=True, 
+            ppa=None, livepatch_needs_installing=True,
         )
 
         self.framework.observe(self.on.config_changed, self.config_changed)
@@ -117,6 +139,9 @@ class UbuntuAdvantageCharm(CharmBase):
         self._setup_proxy_env()
         self._handle_ppa_state()
         self._handle_package_state()
+        self._configure_livepatch()
+        if isinstance(self.unit.status, BlockedStatus):
+            return
         self._handle_subscription_state()
         if isinstance(self.unit.status, BlockedStatus):
             return
@@ -149,6 +174,35 @@ class UbuntuAdvantageCharm(CharmBase):
             apt.add_package("ubuntu-advantage-tools", update_cache=True)
             self._state.package_needs_installing = False
 
+    def _configure_livepatch(self):
+        """Configure the livepatch server and token."""
+        livepatch_server = self.config.get("livepatch_server", "").strip()
+        livepatch_token = self.config.get("livepatch_token", "").strip()
+
+        # Check if livepatch on-prem server and token is provided
+        if livepatch_server and livepatch_token:
+            if self._state.livepatch_needs_installing:
+                logger.info("Installing package canonical-livepatch")
+                install_livepatch()
+                self._state.livepatch_needs_installing = False
+    
+            try:
+                logger.info("Setting livepatch server")
+                set_livepatch_server(livepatch_server)
+            except ProcessExecutionError as e:
+                logger.error("Failed to configure livepatch: %s", str(e))
+                self.unit.status = BlockedStatus(str(e))
+                return
+            
+            try:
+                logger.info("Enabling livepatch")
+                enable_livepatch(livepatch_token)
+            except ProcessExecutionError as e:
+                logger.error("Failed to enable livepatch: %s", str(e))
+                self.unit.status = BlockedStatus(str(e))
+                return
+            
+
     def _handle_subscription_state(self):
         """Handle uaclient configuration and subscription attachment."""
         token = self.config.get("token", "").strip()
@@ -173,7 +227,7 @@ class UbuntuAdvantageCharm(CharmBase):
         try:
             status = get_status_output()
         except ProcessExecutionError as e:
-            self.unit_status = BlockedStatus(str(e))
+            self.unit.status = BlockedStatus(str(e))
             return
         if status["attached"] and (config_changed or token_changed):
             logger.info("Detaching ubuntu-advantage subscription")

@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 
 import pytest
+import os
 from ops.model import ActiveStatus, BlockedStatus
 from pytest_operator.plugin import OpsTest
 
@@ -29,6 +30,15 @@ async def test_attach_invalid_token(ops_test: OpsTest):
     await ops_test.model.wait_for_idle()
 
     await charm.set_config({"token": "new-token-2"})
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == BlockedStatus.name
+
+async def test_livepatch_server_set_fails(ops_test: OpsTest):
+    charm = ops_test.model.applications["ubuntu-advantage"]
+    await charm.set_config({"livepatch_server": "https://www.example.com"})
+    await charm.set_config({"livepatch_token": "new-token"})
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]

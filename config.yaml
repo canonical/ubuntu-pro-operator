@@ -24,3 +24,17 @@ options:
     default: ""
     description: https-proxy which can override juju https-proxy
     type: string
+  livepatch_server:
+    default: ""
+    description: URL of the livepatch on-prem server.
+    type: string
+  livepatch_token:
+    default: ""
+    description: Authorization token for the livepatch on-prem server.
+    type: string
+  # services:
+  #   default: ""
+  #   description: List of services to enable on Ubuntu Pro attach.
+  #   type: string
+  #   items:
+  #     type: string

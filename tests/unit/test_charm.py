@@ -570,6 +570,36 @@ class TestCharm(TestCase):
             ]
         )
 
+    @patch("charm.set_livepatch_server", side_effect=[(0, "")])
+    @patch("charm.enable_livepatch", side_effect=[(0, "")])
+    @patch("charm.install_livepatch", side_effect=[(0, "")])
+    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED), 
+                                                   json.loads(STATUS_DETACHED)])
+    def test_canonical_livepatch_set_server(self, m_status_output, m_install_livepatch,
+                                            m_enable_livepatch, m_set_livepatch_server):
+        self.assertTrue(self.harness.charm._state.livepatch_needs_installing)
+        self.harness.update_config({"livepatch_server": "https://www.example.com"})
+        self.harness.update_config({"livepatch_token": "new-token"})
+
+        self.assertEqual(m_install_livepatch.call_count, 1)
+        self.assertEqual(m_enable_livepatch.call_count, 1)
+        self.assertEqual(m_set_livepatch_server.call_count, 1)
+        self.assertFalse(self.harness.charm._state.livepatch_needs_installing)
+
+    @patch("charm.set_livepatch_server", side_effect=[(0, "")])
+    @patch("charm.enable_livepatch", side_effect=[(0, "")])
+    @patch("charm.install_livepatch", side_effect=[(0, "")])
+    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED), 
+                                                   json.loads(STATUS_DETACHED)])
+    def test_canonical_livepatch_no_token(self, m_status_output, m_install_livepatch,
+                                            m_enable_livepatch, m_set_livepatch_server):
+        self.harness.update_config({"livepatch_server": "https://www.example.com"})
+        self.assertTrue(self.harness.charm._state.livepatch_needs_installing)
+        self.assertEqual(m_install_livepatch.call_count, 0)
+        self.assertEqual(m_enable_livepatch.call_count, 0)
+        self.assertEqual(m_set_livepatch_server.call_count, 0)
+        
+
     @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED)])
     def test_setup_proxy_config(self, m_get_status_output):
         self.harness.update_config(
