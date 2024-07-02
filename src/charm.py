@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2021 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 """Charmed Operator to enable Ubuntu Pro (https://ubuntu.com/pro) subscriptions."""
@@ -16,6 +16,9 @@ from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
+
+from exceptions import ProcessExecutionError
+from utils.retry import retry
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +48,26 @@ def detach_subscription():
     subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
 
 
+@retry(ProcessExecutionError)
 def attach_subscription(token):
     """Attach an ubuntu-advantage subscription using the specified token."""
-    return subprocess.call(["ubuntu-advantage", "attach", token])
+    result = subprocess.run(["ubuntu-advantage", "attach", token], capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.error("Error running attach. stderr %s\nstdout: %s", result.stderr, result.stdout)
+        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+    return result.returncode, result.stderr
 
 
+@retry(ProcessExecutionError)
 def get_status_output():
     """Return the parsed output from ubuntu-advantage status."""
-    output = subprocess.check_output(["ubuntu-advantage", "status", "--all", "--format", "json"])
+    result = subprocess.run(
+        ["ubuntu-advantage", "status", "--all", "--format", "json"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        logger.error("Error running attach. stderr %s\nstdout: %s", result.stderr, result.stdout)
+        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+    output = result.stdout
     # handle different return type from xenial
     if isinstance(output, bytes):
         output = output.decode("utf-8")
@@ -155,7 +170,11 @@ class UbuntuAdvantageCharm(CharmBase):
             update_configuration(contract_url)
             self._state.contract_url = contract_url
 
-        status = get_status_output()
+        try:
+            status = get_status_output()
+        except ProcessExecutionError as e:
+            self.unit_status = BlockedStatus(str(e))
+            return
         if status["attached"] and (config_changed or token_changed):
             logger.info("Detaching ubuntu-advantage subscription")
             detach_subscription()
@@ -166,10 +185,10 @@ class UbuntuAdvantageCharm(CharmBase):
             return
         elif config_changed or token_changed:
             logger.info("Attaching ubuntu-advantage subscription")
-            return_code = attach_subscription(token)
-            if return_code != 0:
-                message = "Error attaching, possibly an invalid token or contract_url?"
-                self.unit.status = BlockedStatus(message)
+            try:
+                return_code, stderr = attach_subscription(token)
+            except ProcessExecutionError as e:
+                self.unit.status = BlockedStatus(str(e))
                 return
             self._state.hashed_token = hashed_token
 
