@@ -315,6 +315,31 @@ class TestCharm(TestCase):
         )
         self.assertEqual(self.harness.model.unit.status, BlockedStatus(message))
 
+    @patch("charm.parse_services")
+    @patch("charm.create_attach_config")
+    @patch(
+        "charm.get_status_output",
+        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
+    )
+    def test_attach_with_added_services(
+        self, m_get_status_output, m_create_attach_config, m_parse_services
+    ):
+        m_parse_services.return_value = ["esm-infra", "fips"]
+        m_create_attach_config.return_value.__enter__.return_value = "/tmp/mock_attach.yaml"
+        self.harness.update_config({"token": "test-token", "services": "esm-infra, fips"})
+
+        m_parse_services.assert_called_once_with("esm-infra, fips")
+        assert m_create_attach_config.call_count == 1
+
+    @patch("charm.attach_subscription", return_value=(0, ""))
+    @patch(
+        "charm.get_status_output",
+        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
+    )
+    def test_attach_with_no_services(self, m_get_status_output, m_attach_subscription):
+        self.harness.update_config({"token": "test-token"})
+        m_attach_subscription.assert_called_once_with("test-token", services=None)
+
     @patch(
         "charm.get_status_output",
         side_effect=[
@@ -573,10 +598,13 @@ class TestCharm(TestCase):
     @patch("charm.set_livepatch_server", side_effect=[(0, "")])
     @patch("charm.enable_livepatch", side_effect=[(0, "")])
     @patch("charm.install_livepatch", side_effect=[(0, "")])
-    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED), 
-                                                   json.loads(STATUS_DETACHED)])
-    def test_canonical_livepatch_set_server(self, m_status_output, m_install_livepatch,
-                                            m_enable_livepatch, m_set_livepatch_server):
+    @patch(
+        "charm.get_status_output",
+        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
+    )
+    def test_canonical_livepatch_set_server(
+        self, m_status_output, m_install_livepatch, m_enable_livepatch, m_set_livepatch_server
+    ):
         self.assertTrue(self.harness.charm._state.livepatch_needs_installing)
         self.harness.update_config({"livepatch_server": "https://www.example.com"})
         self.harness.update_config({"livepatch_token": "new-token"})
@@ -589,16 +617,18 @@ class TestCharm(TestCase):
     @patch("charm.set_livepatch_server", side_effect=[(0, "")])
     @patch("charm.enable_livepatch", side_effect=[(0, "")])
     @patch("charm.install_livepatch", side_effect=[(0, "")])
-    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED), 
-                                                   json.loads(STATUS_DETACHED)])
-    def test_canonical_livepatch_no_token(self, m_status_output, m_install_livepatch,
-                                            m_enable_livepatch, m_set_livepatch_server):
+    @patch(
+        "charm.get_status_output",
+        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
+    )
+    def test_canonical_livepatch_no_token(
+        self, m_status_output, m_install_livepatch, m_enable_livepatch, m_set_livepatch_server
+    ):
         self.harness.update_config({"livepatch_server": "https://www.example.com"})
         self.assertTrue(self.harness.charm._state.livepatch_needs_installing)
         self.assertEqual(m_install_livepatch.call_count, 0)
         self.assertEqual(m_enable_livepatch.call_count, 0)
         self.assertEqual(m_set_livepatch_server.call_count, 0)
-        
 
     @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED)])
     def test_setup_proxy_config(self, m_get_status_output):

@@ -32,9 +32,7 @@ options:
     default: ""
     description: Authorization token for the livepatch on-prem server.
     type: string
-  # services:
-  #   default: ""
-  #   description: List of services to enable on Ubuntu Pro attach.
-  #   type: string
-  #   items:
-  #     type: string
+  services:
+    default: ""
+    description: Comma-separated list of services required to be activated when attaching to pro.
+    type: string

@@ -1,8 +1,9 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-import pytest
 import os
+
+import pytest
 from ops.model import ActiveStatus, BlockedStatus
 from pytest_operator.plugin import OpsTest
 
@@ -35,10 +36,39 @@ async def test_attach_invalid_token(ops_test: OpsTest):
     unit = charm.units[0]
     assert unit.workload_status == BlockedStatus.name
 
+
+async def test_attach_services(ops_test: OpsTest):
+    # Set test token to environment variable PRO_CHARM_TEST_TOKEN
+    # bash: export PRO_CHARM_TEST_TOKEN="your-token"
+    test_token = os.environ.get("PRO_CHARM_TEST_TOKEN")
+    charm = ops_test.model.applications["ubuntu-advantage"]
+
+    # Attach to pro subscription with services
+    await charm.set_config({"services": "esm-infra,cis"})
+    await charm.set_config({"token": f"{test_token}"})
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == ActiveStatus.name
+
+    # Detach from pro subscription
+    await charm.set_config({"token": ""})
+    await ops_test.model.wait_for_idle()
+    assert unit.workload_status == BlockedStatus.name
+
+
 async def test_livepatch_server_set_fails(ops_test: OpsTest):
     charm = ops_test.model.applications["ubuntu-advantage"]
     await charm.set_config({"livepatch_server": "https://www.example.com"})
     await charm.set_config({"livepatch_token": "new-token"})
+    await ops_test.model.wait_for_idle()
+    unit = charm.units[0]
+    assert unit.workload_status == BlockedStatus.name
+
+
+async def test_detach_subscription(ops_test: OpsTest):
+    charm = ops_test.model.applications["ubuntu-advantage"]
+    await charm.set_config({"token": ""})
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]
