@@ -57,9 +57,26 @@ async def test_attach_services(ops_test: OpsTest):
     assert unit.workload_status == BlockedStatus.name
 
 
+async def test_empty_livepatch_config(ops_test: OpsTest):
+    charm = ops_test.model.applications["ubuntu-advantage"]
+    test_token = os.environ.get("PRO_CHARM_TEST_TOKEN")
+
+    await charm.set_config({"token": test_token})
+    await charm.set_config({"livepatch_token": ""})
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == ActiveStatus.name
+
+    # Detach from pro subscription
+    await charm.set_config({"token": ""})
+    await ops_test.model.wait_for_idle()
+    assert unit.workload_status == BlockedStatus.name
+
+
 async def test_livepatch_server_set_fails(ops_test: OpsTest):
     charm = ops_test.model.applications["ubuntu-advantage"]
-    await charm.set_config({"livepatch_server": "https://www.example.com"})
+    await charm.set_config({"livepatch_server_url": "https://www.example.com"})
     await charm.set_config({"livepatch_token": "new-token"})
     await ops_test.model.wait_for_idle()
     unit = charm.units[0]
