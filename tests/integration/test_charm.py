@@ -44,15 +44,15 @@ async def test_attach_services(ops_test: OpsTest):
     charm = ops_test.model.applications["ubuntu-advantage"]
 
     # Attach to pro subscription with services
-    await charm.set_config({"services": "esm-infra,cis"})
-    await charm.set_config({"token": f"{test_token}"})
+    await charm.set_config({"services": "esm-infra,cis", "token": f"{test_token}"})
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]
     assert unit.workload_status == ActiveStatus.name
+    assert unit.workload_status_message == "Attached (esm-infra,usg)"
 
     # Detach from pro subscription
-    await charm.set_config({"token": ""})
+    await charm.set_config({"token": "", "services": ""})
     await ops_test.model.wait_for_idle()
     assert unit.workload_status == BlockedStatus.name
 
@@ -61,8 +61,7 @@ async def test_empty_livepatch_config(ops_test: OpsTest):
     charm = ops_test.model.applications["ubuntu-advantage"]
     test_token = os.environ.get("PRO_CHARM_TEST_TOKEN")
 
-    await charm.set_config({"token": test_token})
-    await charm.set_config({"livepatch_token": ""})
+    await charm.set_config({"token": test_token, "livepatch_token": ""})
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]
@@ -74,10 +73,34 @@ async def test_empty_livepatch_config(ops_test: OpsTest):
     assert unit.workload_status == BlockedStatus.name
 
 
+async def test_livepatch_server_success(ops_test: OpsTest):
+    charm = ops_test.model.applications["ubuntu-advantage"]
+    test_pro_token = os.environ.get("PRO_CHARM_TEST_TOKEN")
+    test_livepatch_token = os.environ.get("PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN")
+
+    await charm.set_config(
+        {
+            "livepatch_server_url": "https://livepatch.staging.canonical.com",
+            "livepatch_token": test_livepatch_token,
+            "token": test_pro_token,
+        }
+    )
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == ActiveStatus.name
+
+    # Detach from pro subscription and livepatch
+    await charm.set_config({"token": "", "livepatch_token": "", "livepatch_server_url": ""})
+    await ops_test.model.wait_for_idle()
+    assert unit.workload_status == BlockedStatus.name
+
+
 async def test_livepatch_server_set_fails(ops_test: OpsTest):
     charm = ops_test.model.applications["ubuntu-advantage"]
-    await charm.set_config({"livepatch_server_url": "https://www.example.com"})
-    await charm.set_config({"livepatch_token": "new-token"})
+    await charm.set_config(
+        {"livepatch_server_url": "https://www.example.com", "livepatch_token": "new-token"}
+    )
     await ops_test.model.wait_for_idle()
     unit = charm.units[0]
     assert unit.workload_status == BlockedStatus.name

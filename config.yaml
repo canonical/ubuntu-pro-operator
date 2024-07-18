@@ -30,11 +30,13 @@ options:
     type: string
   livepatch_token:
     default: ""
-    description: Authorization token for the livepatch on-prem server. Required if livepatch_server_url is set.
-                 Unsetting will revert the on-prem server to the default server (https://livepatch.canonical.com).
+    description:
+      Authorization token for the livepatch on-prem server. Required if livepatch_server_url is set.
+      Unsetting will revert the on-prem server to the default server (https://livepatch.canonical.com).
     type: string
   services:
     default: ""
-    description: A comma-separated list of services to enable when attaching to a pro subscription. This list overrides the default services. If specified, only these services will be activated. If left empty, the default services are activated. 
-                 A list of possible services can be found by running "pro enable --help" on a machine with the ubuntu-advantage-tools package installed.
+    description:
+      A comma-separated list of services to enable when attaching to a pro subscription. This list overrides the default services. If specified, only these services will be activated. If left empty, the default services are activated.
+      A list of possible services can be found by running "pro status --all" on a machine with the ubuntu-pro-client package installed.
     type: string

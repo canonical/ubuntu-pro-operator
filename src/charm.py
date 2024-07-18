@@ -24,6 +24,8 @@ from utils.retry import retry
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_LIVEPATCH_SERVER = "https://livepatch.canonical.com"
+
 
 def install_ppa(ppa, env):
     """Install specified ppa."""
@@ -78,7 +80,7 @@ def enable_livepatch_server(token):
 def install_livepatch():
     """Install the canonical-livepatch package."""
     logger.info("Installing package canonical-livepatch")
-    subprocess.check_call(["sudo", "snap", "install", "canonical-livepatch"])
+    subprocess.check_call(["snap", "install", "canonical-livepatch"])
 
 
 def disable_canonical_livepatch():
@@ -108,7 +110,7 @@ def create_attach_config(token, services=None):
     """Create an attach config file with the specified token."""
     attach_config = {"token": token, "enable_services": services}
     try:
-        with NamedTemporaryFile(mode="w", suffix=".yaml", prefix="pro_attach", dir="/tmp") as f:
+        with NamedTemporaryFile(mode="w", suffix=".yaml", prefix="pro_attach") as f:
             yaml.dump(attach_config, f, default_flow_style=False)
             temp_file_path = f.name
             logger.info("Created attach config file: %s", temp_file_path)
@@ -157,7 +159,7 @@ def get_enabled_services(status):
     """Return a list of enabled services."""
     services = []
     for service in status.get("services"):
-        if service.get("status") == "enabled":
+        if service.get("status") in ["enabled", "warning"]:
             services.append(service.get("name"))
     return services
 
@@ -175,7 +177,8 @@ class UbuntuAdvantageCharm(CharmBase):
             hashed_token=None,
             package_needs_installing=True,
             ppa=None,
-            livepatch_needs_installing=True,
+            livepatch_installed=False,
+            hashed_livepatch_token=None,
         )
 
         self.framework.observe(self.on.config_changed, self.config_changed)
@@ -248,26 +251,33 @@ class UbuntuAdvantageCharm(CharmBase):
         """Configure the onprem livepatch server and token."""
         livepatch_server = self.config.get("livepatch_server_url", "").strip()
         livepatch_token = self.config.get("livepatch_token", "").strip()
-
-        if self._state.livepatch_needs_installing:
-            install_livepatch()
-            self._state.livepatch_needs_installing = False
+        hashed_livepatch_token = hashlib.sha256(livepatch_token.encode()).hexdigest()
 
         try:
             if livepatch_server and livepatch_token:
-                set_livepatch_server(livepatch_server)
-                enable_livepatch_server(livepatch_token)
-            else:
+                if hashed_livepatch_token != self._state.hashed_livepatch_token:
+                    if not self._state.livepatch_installed:
+                        install_livepatch()
+                        self._state.livepatch_installed = True
+                    set_livepatch_server(livepatch_server)
+                    disable_canonical_livepatch()
+                    enable_livepatch_server(livepatch_token)
+                    self._state.hashed_livepatch_token = hashed_livepatch_token
+            elif (
+                self._state.livepatch_installed and self._state.hashed_livepatch_token is not None
+            ):
                 # Set to default server
                 status = get_status_output()
                 is_attached = status.get("attached")
                 enabled_services = get_enabled_services(status)
                 logger.info("Setting livepatch on-prem server to default")
-                set_livepatch_server("https://livepatch.canonical.com")
+                set_livepatch_server(DEFAULT_LIVEPATCH_SERVER)
+                # Disabling canonical-livepatch when already disabled does not throw an error
                 disable_canonical_livepatch()
                 if is_attached and "livepatch" in enabled_services:
                     logger.info("Enabling livepatch hosted server using Pro client")
                     ua_enable_service("livepatch")
+                self._state.hashed_livepatch_token = None
         except ProcessExecutionError as e:
             logger.error("Failed to configure livepatch: %s", str(e))
             self.unit.status = BlockedStatus(str(e))
