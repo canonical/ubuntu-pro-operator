@@ -9,6 +9,8 @@ import json
 import logging
 import os
 import subprocess
+from contextlib import contextmanager
+from tempfile import NamedTemporaryFile
 
 import yaml
 from charms.operator_libs_linux.v0 import apt
@@ -21,6 +23,8 @@ from exceptions import ProcessExecutionError
 from utils.retry import retry
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_LIVEPATCH_SERVER = "https://livepatch.canonical.com"
 
 
 def install_ppa(ppa, env):
@@ -45,17 +49,94 @@ def update_configuration(contract_url):
 
 def detach_subscription():
     """Detach from any ubuntu-advantage subscription."""
+    logger.info("Detaching ubuntu-advantage subscription")
     subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"])
 
 
+def set_livepatch_server(server):
+    """Set the livepatch server."""
+    logger.info("Setting livepatch on-prem server")
+    result = subprocess.run(
+        ["canonical-livepatch", "config", f"remote-server={server}"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        logger.error("Error setting canonical-livepatch server: %s", result.stderr)
+        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+
+
+def enable_livepatch_server(token):
+    """Enable livepatch with the specified token."""
+    logger.info("Enabling livepatch on-prem server using auth token")
+    result = subprocess.run(
+        ["canonical-livepatch", "enable", token], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        logger.error("Error running canonical-livepatch enable: %s", result.stderr)
+        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+
+
+def install_livepatch():
+    """Install the canonical-livepatch package."""
+    logger.info("Installing package canonical-livepatch")
+    subprocess.check_call(["snap", "install", "canonical-livepatch"])
+
+
+def disable_canonical_livepatch():
+    """Disable the canonical-livepatch."""
+    result = subprocess.run(["canonical-livepatch", "disable"], capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.error("Error running canonical-livepatch disable: %s", result.stderr)
+        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+
+
+def ua_enable_service(service):
+    """Enable a ubuntu-advantage service."""
+    subprocess.check_call(["ubuntu-advantage", "enable", service])
+
+
+def parse_services(services_str):
+    """Parse a comma-separated string of services into a list."""
+    return (
+        [service.strip() for service in services_str.split(",") if service.strip() != ""]
+        if services_str and services_str.strip() != ""
+        else None
+    )
+
+
+@contextmanager
+def create_attach_config(token, services=None):
+    """Create an attach config file with the specified token."""
+    attach_config = {"token": token, "enable_services": services}
+    try:
+        with NamedTemporaryFile(mode="w", suffix=".yaml", prefix="pro_attach") as f:
+            yaml.dump(attach_config, f, default_flow_style=False)
+            temp_file_path = f.name
+            logger.info("Created attach config file: %s", temp_file_path)
+            yield temp_file_path
+    except IOError as e:
+        logger.error("Error creating attach config file: %s", str(e))
+        raise e
+
+
 @retry(ProcessExecutionError)
-def attach_subscription(token):
-    """Attach an ubuntu-advantage subscription using the specified token."""
-    result = subprocess.run(["ubuntu-advantage", "attach", token], capture_output=True, text=True)
+def attach_subscription(token, services=None):
+    """Attach an ubuntu-advantage subscription using the specified token and services."""
+    if services:
+        with create_attach_config(token, services) as attach_config_path:
+            result = subprocess.run(
+                ["ubuntu-advantage", "attach", "--attach-config", attach_config_path],
+                capture_output=True,
+                text=True,
+            )
+    else:
+        result = subprocess.run(
+            ["ubuntu-advantage", "attach", token], capture_output=True, text=True
+        )
     if result.returncode != 0:
         logger.error("Error running attach. stderr %s\nstdout: %s", result.stderr, result.stdout)
         raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
-    return result.returncode, result.stderr
 
 
 @retry(ProcessExecutionError)
@@ -74,6 +155,15 @@ def get_status_output():
     return json.loads(output)
 
 
+def get_enabled_services(status):
+    """Return a list of enabled services."""
+    services = []
+    for service in status.get("services"):
+        if service.get("status") in ["enabled", "warning"]:
+            services.append(service.get("name"))
+    return services
+
+
 class UbuntuAdvantageCharm(CharmBase):
     """Charm to handle ubuntu-advantage installation and configuration."""
 
@@ -83,7 +173,12 @@ class UbuntuAdvantageCharm(CharmBase):
         super().__init__(*args)
         self._setup_proxy_env()
         self._state.set_default(
-            contract_url=None, hashed_token=None, package_needs_installing=True, ppa=None
+            contract_url=None,
+            hashed_token=None,
+            package_needs_installing=True,
+            ppa=None,
+            livepatch_installed=False,
+            hashed_livepatch_token=None,
         )
 
         self.framework.observe(self.on.config_changed, self.config_changed)
@@ -117,6 +212,9 @@ class UbuntuAdvantageCharm(CharmBase):
         self._setup_proxy_env()
         self._handle_ppa_state()
         self._handle_package_state()
+        self._configure_livepatch()
+        if isinstance(self.unit.status, BlockedStatus):
+            return
         self._handle_subscription_state()
         if isinstance(self.unit.status, BlockedStatus):
             return
@@ -149,6 +247,41 @@ class UbuntuAdvantageCharm(CharmBase):
             apt.add_package("ubuntu-advantage-tools", update_cache=True)
             self._state.package_needs_installing = False
 
+    def _configure_livepatch(self):
+        """Configure the onprem livepatch server and token."""
+        livepatch_server = self.config.get("livepatch_server_url", "").strip()
+        livepatch_token = self.config.get("livepatch_token", "").strip()
+        hashed_livepatch_token = hashlib.sha256(livepatch_token.encode()).hexdigest()
+
+        try:
+            if livepatch_server and livepatch_token:
+                if hashed_livepatch_token != self._state.hashed_livepatch_token:
+                    if not self._state.livepatch_installed:
+                        install_livepatch()
+                        self._state.livepatch_installed = True
+                    set_livepatch_server(livepatch_server)
+                    disable_canonical_livepatch()
+                    enable_livepatch_server(livepatch_token)
+                    self._state.hashed_livepatch_token = hashed_livepatch_token
+            elif (
+                self._state.livepatch_installed and self._state.hashed_livepatch_token is not None
+            ):
+                # Set to default server
+                status = get_status_output()
+                is_attached = status.get("attached")
+                enabled_services = get_enabled_services(status)
+                logger.info("Setting livepatch on-prem server to default")
+                set_livepatch_server(DEFAULT_LIVEPATCH_SERVER)
+                # Disabling canonical-livepatch when already disabled does not throw an error
+                disable_canonical_livepatch()
+                if is_attached and "livepatch" in enabled_services:
+                    logger.info("Enabling livepatch hosted server using Pro client")
+                    ua_enable_service("livepatch")
+                self._state.hashed_livepatch_token = None
+        except ProcessExecutionError as e:
+            logger.error("Failed to configure livepatch: %s", str(e))
+            self.unit.status = BlockedStatus(str(e))
+
     def _handle_subscription_state(self):
         """Handle uaclient configuration and subscription attachment."""
         token = self.config.get("token", "").strip()
@@ -173,10 +306,9 @@ class UbuntuAdvantageCharm(CharmBase):
         try:
             status = get_status_output()
         except ProcessExecutionError as e:
-            self.unit_status = BlockedStatus(str(e))
+            self.unit.status = BlockedStatus(str(e))
             return
         if status["attached"] and (config_changed or token_changed):
-            logger.info("Detaching ubuntu-advantage subscription")
             detach_subscription()
             self._state.hashed_token = None
 
@@ -186,7 +318,8 @@ class UbuntuAdvantageCharm(CharmBase):
         elif config_changed or token_changed:
             logger.info("Attaching ubuntu-advantage subscription")
             try:
-                return_code, stderr = attach_subscription(token)
+                enable_services = parse_services(self.config.get("services", "").strip())
+                attach_subscription(token, services=enable_services)
             except ProcessExecutionError as e:
                 self.unit.status = BlockedStatus(str(e))
                 return
@@ -195,10 +328,7 @@ class UbuntuAdvantageCharm(CharmBase):
     def _handle_status_state(self):
         """Parse status output to determine which services are active."""
         status = get_status_output()
-        services = []
-        for service in status.get("services"):
-            if service.get("status") == "enabled":
-                services.append(service.get("name"))
+        services = get_enabled_services(status)
         message = "Attached (" + ",".join(services) + ")"
         self.unit.status = ActiveStatus(message)
 

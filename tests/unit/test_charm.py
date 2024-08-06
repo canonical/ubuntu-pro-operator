@@ -64,9 +64,13 @@ class TestCharm(TestCase):
             "open": patch("builtins.open").start(),
             "environ": patch.dict("os.environ", clear=True).start(),
             "apt": patch("charm.apt").start(),
+            "status_output": patch("charm.get_status_output").start(),
+            "install_livepatch": patch("charm.install_livepatch").start(),
+            "disable_livepatch": patch("charm.disable_canonical_livepatch").start(),
         }
         self.mocks["call"].return_value = 0
         self.mocks["run"].return_value = MagicMock(returncode=0, stderr="")
+        self.mocks["status_output"].return_value = json.loads(STATUS_DETACHED)
         mock_open(self.mocks["open"], read_data=DEFAULT_CLIENT_CONFIG)
         self.harness = Harness(UbuntuAdvantageCharm)
         self.addCleanup(self.harness.cleanup)
@@ -80,8 +84,7 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm.config.get("ppa"), "")
         self.assertEqual(self.harness.charm.config.get("token"), "")
 
-    @patch("charm.get_status_output", return_value=json.loads(STATUS_DETACHED))
-    def test_config_changed_ppa_new(self, m_get_status_output):
+    def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
@@ -95,11 +98,7 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
-    @patch(
-        "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
-    )
-    def test_config_changed_ppa_updated(self, m_get_status_output):
+    def test_config_changed_ppa_updated(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
@@ -135,11 +134,7 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm._state.ppa, "ppa:different-client/unstable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
-    @patch(
-        "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
-    )
-    def test_config_changed_ppa_unmodified(self, m_get_status_output):
+    def test_config_changed_ppa_unmodified(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
@@ -160,11 +155,7 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
-    @patch(
-        "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
-    )
-    def test_config_changed_ppa_unset(self, m_get_status_output):
+    def test_config_changed_ppa_unset(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
@@ -209,7 +200,10 @@ class TestCharm(TestCase):
     @patch("charm.attach_subscription", side_effect=[(0, "")])
     @patch(
         "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_ATTACHED)],
+        side_effect=[
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
+        ],
     )
     def test_config_changed_token_unattached(self, m_get_status_output, m_attach_subscription):
         self.harness.update_config({"token": "test-token"})
@@ -240,6 +234,8 @@ class TestCharm(TestCase):
         "charm.get_status_output",
         side_effect=[
             json.loads(STATUS_DETACHED),
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
@@ -287,37 +283,59 @@ class TestCharm(TestCase):
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
         )
 
-    def test_attach_retry_on_failure(self):
+    @patch(
+        "charm.get_status_output",
+        side_effect=[
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
+        ],
+    )
+    def test_attach_retry_on_failure(self, m_get_status_output):
         self.mocks["run"].side_effect = [
-            MagicMock(returncode=0, stdout=STATUS_DETACHED),
+            MagicMock(returncode=0, stderr=""),
             ProcessExecutionError("attach", 1, "", "Invalid token"),
             MagicMock(returncode=0, stderr=""),
-            MagicMock(returncode=0, stdout=STATUS_ATTACHED),
         ]
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(self.mocks["run"].call_count, 4)
+        self.assertEqual(self.mocks["run"].call_count, 1)
+        self.assertEqual(m_get_status_output.call_count, 2)
         self.assertEqual(
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
         )
 
-    @patch("charm.get_status_output")
     @patch(
         "charm.attach_subscription",
         side_effect=[ProcessExecutionError("attach", 1, "", "Invalid token")],
     )
-    def test_config_changed_attach_failure(self, m_attach_subscription, m_get_status_output):
-        m_get_status_output.side_effect = [json.loads(STATUS_DETACHED)]
+    def test_config_changed_attach_failure(self, m_attach_subscription):
         self.harness.update_config({"token": "test-token"})
-        assert m_get_status_output.call_count == 1
+        assert self.mocks["status_output"].call_count == 1
         assert m_attach_subscription.call_count == 1
         message = (
             "Failed running command 'attach' [exit status: 1].\nstderr: Invalid token\nstdout: "
         )
         self.assertEqual(self.harness.model.unit.status, BlockedStatus(message))
 
+    @patch("charm.parse_services")
+    @patch("charm.create_attach_config")
+    def test_attach_with_added_services(self, m_create_attach_config, m_parse_services):
+        m_parse_services.return_value = ["esm-infra", "fips"]
+        m_create_attach_config.return_value.__enter__.return_value = "/tmp/mock_attach.yaml"
+        self.harness.update_config({"token": "test-token", "services": "esm-infra, fips"})
+
+        m_parse_services.assert_called_once_with("esm-infra, fips")
+        assert m_create_attach_config.call_count == 1
+
+    @patch("charm.attach_subscription", return_value=(0, ""))
+    def test_attach_with_no_services(self, m_attach_subscription):
+        self.harness.update_config({"token": "test-token"})
+        m_attach_subscription.assert_called_once_with("test-token", services=None)
+
     @patch(
         "charm.get_status_output",
         side_effect=[
+            json.loads(STATUS_ATTACHED),
+            json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
@@ -367,7 +385,11 @@ class TestCharm(TestCase):
     @patch("charm.attach_subscription", side_effect=[(0, "")])
     @patch(
         "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_ATTACHED)],
+        side_effect=[
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
+        ],
     )
     def test_config_changed_token_contains_newline(
         self, m_get_status_output, m_attach_subscription
@@ -380,8 +402,7 @@ class TestCharm(TestCase):
         assert m_get_status_output.call_count == 2
         assert m_attach_subscription.call_count == 1
 
-    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED)])
-    def test_config_changed_ppa_contains_newline(self, m_get_status_output):
+    def test_config_changed_ppa_contains_newline(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable\n"})
         self.mocks["check_call"].assert_has_calls(
             [
@@ -389,7 +410,7 @@ class TestCharm(TestCase):
             ]
         )
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
-        assert m_get_status_output.call_count == 1
+        assert self.mocks["status_output"].call_count == 1
 
     @patch("charm.attach_subscription", side_effect=[(0, "")])
     @patch(
@@ -407,8 +428,7 @@ class TestCharm(TestCase):
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
         )
 
-    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED)])
-    def test_config_changed_contract_url(self, m_get_status_output):
+    def test_config_changed_contract_url(self):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
@@ -422,7 +442,7 @@ class TestCharm(TestCase):
         )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        assert m_get_status_output.call_count == 1
+        assert self.mocks["status_output"].call_count == 1
         self.assertEqual(
             self.harness.charm._state.contract_url, "https://contracts.staging.canonical.com"
         )
@@ -480,7 +500,10 @@ class TestCharm(TestCase):
 
     @patch(
         "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_ATTACHED)],
+        side_effect=[
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
+        ],
     )
     def test_config_changed_unset_contract_url(self, m_get_status_output):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
@@ -518,15 +541,7 @@ class TestCharm(TestCase):
         self.mocks["call"].assert_not_called()
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
 
-    @patch(
-        "charm.get_status_output",
-        side_effect=[
-            json.loads(STATUS_DETACHED),
-            json.loads(STATUS_DETACHED),
-            json.loads(STATUS_DETACHED),
-        ],
-    )
-    def test_config_changed_set_and_unset_proxy_override(self, m_get_status_output):
+    def test_config_changed_set_and_unset_proxy_override(self):
         # Set proxy override once.
         self.harness.update_config(
             {
@@ -570,8 +585,59 @@ class TestCharm(TestCase):
             ]
         )
 
-    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED)])
-    def test_setup_proxy_config(self, m_get_status_output):
+    @patch("charm.set_livepatch_server", side_effect=[(0, "")])
+    @patch("charm.enable_livepatch_server", side_effect=[(0, "")])
+    def test_canonical_livepatch_no_token(self, m_enable_livepatch_server, m_set_livepatch_server):
+        self.assertFalse(self.harness.charm._state.livepatch_installed)
+        self.harness.update_config({"livepatch_server_url": "https://www.example.com"})
+        self.assertFalse(self.harness.charm._state.livepatch_installed)
+        self.assertEqual(m_enable_livepatch_server.call_count, 0)
+        self.assertEqual(m_set_livepatch_server.call_count, 0)
+        self.assertEqual(self.mocks["install_livepatch"].call_count, 0)
+
+    @patch("charm.get_enabled_services", side_effect=[["esm-apps", "esm-infra", "livepatch"]])
+    @patch("charm.set_livepatch_server", side_effect=[(0, ""), (0, "")])
+    @patch("charm.enable_livepatch_server", side_effect=[(0, "")])
+    @patch("charm.get_status_output", return_value=json.loads(STATUS_ATTACHED))
+    def test_canonical_livepatch_unset_server_livepatch_enabled(
+        self,
+        m_get_status_output,
+        m_enable_livepatch_server,
+        m_set_livepatch_server,
+        m_get_enabled_services,
+    ):
+        self.harness.update_config(
+            {"livepatch_server_url": "https://www.example.com", "livepatch_token": "new-token"}
+        )
+        self.mocks["check_call"].reset_mock()
+        self.harness.update_config({"livepatch_server_url": "", "livepatch_token": ""})
+        self.assertEqual(self.mocks["install_livepatch"].call_count, 1)
+        self.assertEqual(self.mocks["disable_livepatch"].call_count, 2)
+        self.assertEqual(m_enable_livepatch_server.call_count, 1)
+        self.assertEqual(m_set_livepatch_server.call_count, 2)
+        self.assertEqual(m_get_enabled_services.call_count, 1)
+        self.mocks["check_call"].assert_has_calls(
+            [call(["ubuntu-advantage", "enable", "livepatch"])]
+        )
+
+    @patch("charm.get_enabled_services", side_effect=[[]])
+    @patch("charm.set_livepatch_server", side_effect=[(0, ""), (0, "")])
+    @patch("charm.enable_livepatch_server", side_effect=[(0, "")])
+    def test_canonical_livepatch_unset_server_unattached(
+        self, m_enable_livepatch_server, m_set_livepatch_server, m_get_enabled_services
+    ):
+        self.harness.update_config(
+            {"livepatch_server_url": "https://www.example.com", "livepatch_token": "new-token"}
+        )
+        self.assertTrue(self.harness.charm._state.livepatch_installed)
+        self.harness.update_config({"livepatch_server_url": "", "livepatch_token": ""})
+        self.assertEqual(self.mocks["install_livepatch"].call_count, 1)
+        self.assertEqual(self.mocks["disable_livepatch"].call_count, 2)
+        self.assertEqual(m_enable_livepatch_server.call_count, 1)
+        self.assertEqual(m_set_livepatch_server.call_count, 2)
+        self.assertEqual(m_get_enabled_services.call_count, 1)
+
+    def test_setup_proxy_config(self):
         self.harness.update_config(
             {
                 "override-http-proxy": TEST_PROXY_URL,
