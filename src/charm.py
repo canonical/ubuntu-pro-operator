@@ -58,23 +58,43 @@ def set_livepatch_server(server):
     logger.info("Setting livepatch on-prem server")
     result = subprocess.run(
         ["canonical-livepatch", "config", f"remote-server={server}"],
-        capture_output=True,
-        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     if result.returncode != 0:
-        logger.error("Error setting canonical-livepatch server: %s", result.stderr)
-        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+        stdout = (
+            result.stdout.decode("utf-8", errors="ignore")
+            if isinstance(result.stdout, bytes)
+            else result.stdout
+        )
+        stderr = (
+            result.stderr.decode("utf-8", errors="ignore")
+            if isinstance(result.stderr, bytes)
+            else result.stderr
+        )
+        logger.error("Error setting canonical-livepatch server: %s", stderr)
+        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
 
 
 def enable_livepatch_server(token):
     """Enable livepatch with the specified token."""
     logger.info("Enabling livepatch on-prem server using auth token")
     result = subprocess.run(
-        ["canonical-livepatch", "enable", token], capture_output=True, text=True
+        ["canonical-livepatch", "enable", token], stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     if result.returncode != 0:
-        logger.error("Error running canonical-livepatch enable: %s", result.stderr)
-        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+        stdout = (
+            result.stdout.decode("utf-8", errors="ignore")
+            if isinstance(result.stdout, bytes)
+            else result.stdout
+        )
+        stderr = (
+            result.stderr.decode("utf-8", errors="ignore")
+            if isinstance(result.stderr, bytes)
+            else result.stderr
+        )
+        logger.error("Error running canonical-livepatch enable: %s", stderr)
+        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
 
 
 def install_livepatch():
@@ -85,10 +105,22 @@ def install_livepatch():
 
 def disable_canonical_livepatch():
     """Disable the canonical-livepatch."""
-    result = subprocess.run(["canonical-livepatch", "disable"], capture_output=True, text=True)
+    result = subprocess.run(
+        ["canonical-livepatch", "disable"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     if result.returncode != 0:
-        logger.error("Error running canonical-livepatch disable: %s", result.stderr)
-        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+        stdout = (
+            result.stdout.decode("utf-8", errors="ignore")
+            if isinstance(result.stdout, bytes)
+            else result.stdout
+        )
+        stderr = (
+            result.stderr.decode("utf-8", errors="ignore")
+            if isinstance(result.stderr, bytes)
+            else result.stderr
+        )
+        logger.error("Error running canonical-livepatch disable: %s", stderr)
+        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
 
 
 def ua_enable_service(service):
@@ -127,27 +159,49 @@ def attach_subscription(token, services=None):
         with create_attach_config(token, services) as attach_config_path:
             result = subprocess.run(
                 ["ubuntu-advantage", "attach", "--attach-config", attach_config_path],
-                capture_output=True,
-                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
     else:
         result = subprocess.run(
-            ["ubuntu-advantage", "attach", token], capture_output=True, text=True
+            ["ubuntu-advantage", "attach", token], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
     if result.returncode != 0:
-        logger.error("Error running attach. stderr %s\nstdout: %s", result.stderr, result.stdout)
-        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+        stdout = (
+            result.stdout.decode("utf-8", errors="ignore")
+            if isinstance(result.stdout, bytes)
+            else result.stdout
+        )
+        stderr = (
+            result.stderr.decode("utf-8", errors="ignore")
+            if isinstance(result.stderr, bytes)
+            else result.stderr
+        )
+        logger.error("Error running attach. stderr %s\nstdout: %s", stderr, stdout)
+        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
 
 
 @retry(ProcessExecutionError)
 def get_status_output():
     """Return the parsed output from ubuntu-advantage status."""
     result = subprocess.run(
-        ["ubuntu-advantage", "status", "--all", "--format", "json"], capture_output=True, text=True
+        ["ubuntu-advantage", "status", "--all", "--format", "json"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     if result.returncode != 0:
-        logger.error("Error running attach. stderr %s\nstdout: %s", result.stderr, result.stdout)
-        raise ProcessExecutionError(result.args, result.returncode, result.stdout, result.stderr)
+        stdout = (
+            result.stdout.decode("utf-8", errors="ignore")
+            if isinstance(result.stdout, bytes)
+            else result.stdout
+        )
+        stderr = (
+            result.stderr.decode("utf-8", errors="ignore")
+            if isinstance(result.stderr, bytes)
+            else result.stderr
+        )
+        logger.error("Error running status. stderr %s\nstdout: %s", stderr, stdout)
+        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
     output = result.stdout
     # handle different return type from xenial
     if isinstance(output, bytes):
