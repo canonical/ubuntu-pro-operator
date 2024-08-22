@@ -18,10 +18,8 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get -qy install tox libapt-pkg-dev intltool
       - name: Git checkout
         uses: actions/checkout@v3
-      - name: Formatting
-        run: tox -e fmt
-      - name: Style
-        run: tox -e style
+      - name: Linting
+        run: tox -e lint
 
   test:
     name: Unit Tests
