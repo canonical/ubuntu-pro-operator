@@ -24,6 +24,10 @@ options:
     default: ""
     description: https-proxy which can override juju https-proxy
     type: string
+  override-ssl-cert-file:
+    default: ""
+    description: Path to a custom SSL certificate file to use for the Ubuntu Pro client actions.
+    type: string
   livepatch_server_url:
     default: ""
     description: URL of the livepatch on-prem server. Unsetting will revert the on-prem server to the default server (https://livepatch.canonical.com).
