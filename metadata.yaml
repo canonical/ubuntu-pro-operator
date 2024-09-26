@@ -6,6 +6,7 @@ series:
   - bionic
   - xenial
   - jammy
+  - noble
 subordinate: true
 requires:
   juju-info:
