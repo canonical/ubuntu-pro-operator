@@ -2,10 +2,10 @@
 # See LICENSE file for licensing details.
 
 import json
-from subprocess import CalledProcessError
+from subprocess import PIPE, CalledProcessError
 from textwrap import dedent
 from unittest import TestCase
-from unittest.mock import MagicMock, call, mock_open, patch
+from unittest.mock import ANY, MagicMock, call, mock_open, patch
 
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
@@ -64,14 +64,18 @@ class TestCharm(TestCase):
             "open": patch("builtins.open").start(),
             "environ": patch.dict("os.environ", clear=True).start(),
             "apt": patch("charm.apt").start(),
+            "status_output": patch("charm.get_status_output").start(),
+            "install_livepatch": patch("charm.install_livepatch").start(),
+            "disable_livepatch": patch("charm.disable_canonical_livepatch").start(),
         }
         self.mocks["call"].return_value = 0
         self.mocks["run"].return_value = MagicMock(returncode=0, stderr="")
+        self.mocks["status_output"].return_value = json.loads(STATUS_DETACHED)
         mock_open(self.mocks["open"], read_data=DEFAULT_CLIENT_CONFIG)
         self.harness = Harness(UbuntuAdvantageCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
-        self.env = self.harness.charm.env
+        self.proxy_env = self.harness.charm.proxy_env
 
     def test_config_defaults(self):
         self.assertEqual(
@@ -80,14 +84,15 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm.config.get("ppa"), "")
         self.assertEqual(self.harness.charm.config.get("token"), "")
 
-    @patch("charm.get_status_output", return_value=json.loads(STATUS_DETACHED))
-    def test_config_changed_ppa_new(self, m_get_status_output):
+    def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
-                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                    call(
+                        ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
+                    ),
                 ]
             )
         )
@@ -95,17 +100,15 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
-    @patch(
-        "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
-    )
-    def test_config_changed_ppa_updated(self, m_get_status_output):
+    def test_config_changed_ppa_updated(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
-                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                    call(
+                        ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
+                    ),
                 ]
             )
         )
@@ -122,11 +125,11 @@ class TestCharm(TestCase):
                 [
                     call(
                         ["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
-                        env=self.env,
+                        env=self.proxy_env,
                     ),
                     call(
                         ["add-apt-repository", "--yes", "ppa:different-client/unstable"],
-                        env=self.env,
+                        env=self.proxy_env,
                     ),
                 ]
             )
@@ -135,17 +138,15 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm._state.ppa, "ppa:different-client/unstable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
-    @patch(
-        "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
-    )
-    def test_config_changed_ppa_unmodified(self, m_get_status_output):
+    def test_config_changed_ppa_unmodified(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
-                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                    call(
+                        ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
+                    ),
                 ]
             )
         )
@@ -160,17 +161,15 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
         self.assertFalse(self.harness.charm._state.package_needs_installing)
 
-    @patch(
-        "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_DETACHED)],
-    )
-    def test_config_changed_ppa_unset(self, m_get_status_output):
+    def test_config_changed_ppa_unset(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
-                    call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                    call(
+                        ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
+                    ),
                 ]
             )
         )
@@ -187,7 +186,7 @@ class TestCharm(TestCase):
                 [
                     call(
                         ["add-apt-repository", "--remove", "--yes", "ppa:ua-client/stable"],
-                        env=self.env,
+                        env=self.proxy_env,
                     ),
                 ]
             )
@@ -209,7 +208,10 @@ class TestCharm(TestCase):
     @patch("charm.attach_subscription", side_effect=[(0, "")])
     @patch(
         "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_ATTACHED)],
+        side_effect=[
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
+        ],
     )
     def test_config_changed_token_unattached(self, m_get_status_output, m_attach_subscription):
         self.harness.update_config({"token": "test-token"})
@@ -240,6 +242,8 @@ class TestCharm(TestCase):
         "charm.get_status_output",
         side_effect=[
             json.loads(STATUS_DETACHED),
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
@@ -274,7 +278,7 @@ class TestCharm(TestCase):
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
-                [call(["ubuntu-advantage", "detach", "--assume-yes"])], append=False
+                [call(["ubuntu-advantage", "detach", "--assume-yes"], env=ANY)], append=False
             )
         )
         assert m_get_status_output.call_count == 4
@@ -287,37 +291,59 @@ class TestCharm(TestCase):
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
         )
 
-    def test_attach_retry_on_failure(self):
+    @patch(
+        "charm.get_status_output",
+        side_effect=[
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
+        ],
+    )
+    def test_attach_retry_on_failure(self, m_get_status_output):
         self.mocks["run"].side_effect = [
-            MagicMock(returncode=0, stdout=STATUS_DETACHED),
+            MagicMock(returncode=0, stderr=""),
             ProcessExecutionError("attach", 1, "", "Invalid token"),
             MagicMock(returncode=0, stderr=""),
-            MagicMock(returncode=0, stdout=STATUS_ATTACHED),
         ]
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(self.mocks["run"].call_count, 4)
+        self.assertEqual(self.mocks["run"].call_count, 1)
+        self.assertEqual(m_get_status_output.call_count, 2)
         self.assertEqual(
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
         )
 
-    @patch("charm.get_status_output")
     @patch(
         "charm.attach_subscription",
         side_effect=[ProcessExecutionError("attach", 1, "", "Invalid token")],
     )
-    def test_config_changed_attach_failure(self, m_attach_subscription, m_get_status_output):
-        m_get_status_output.side_effect = [json.loads(STATUS_DETACHED)]
+    def test_config_changed_attach_failure(self, m_attach_subscription):
         self.harness.update_config({"token": "test-token"})
-        assert m_get_status_output.call_count == 1
+        assert self.mocks["status_output"].call_count == 1
         assert m_attach_subscription.call_count == 1
         message = (
             "Failed running command 'attach' [exit status: 1].\nstderr: Invalid token\nstdout: "
         )
         self.assertEqual(self.harness.model.unit.status, BlockedStatus(message))
 
+    @patch("charm.parse_services")
+    @patch("charm.create_attach_config")
+    def test_attach_with_added_services(self, m_create_attach_config, m_parse_services):
+        m_parse_services.return_value = ["esm-infra", "fips"]
+        m_create_attach_config.return_value.__enter__.return_value = "/tmp/mock_attach.yaml"
+        self.harness.update_config({"token": "test-token", "services": "esm-infra, fips"})
+
+        m_parse_services.assert_called_once_with("esm-infra, fips")
+        assert m_create_attach_config.call_count == 1
+
+    @patch("charm.attach_subscription", return_value=(0, ""))
+    def test_attach_with_no_services(self, m_attach_subscription):
+        self.harness.update_config({"token": "test-token"})
+        m_attach_subscription.assert_called_once_with("test-token", ANY, services=None)
+
     @patch(
         "charm.get_status_output",
         side_effect=[
+            json.loads(STATUS_ATTACHED),
+            json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
@@ -336,7 +362,7 @@ class TestCharm(TestCase):
         self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
-                [call(["ubuntu-advantage", "detach", "--assume-yes"])], append=False
+                [call(["ubuntu-advantage", "detach", "--assume-yes"], env=ANY)], append=False
             )
         )
         assert m_get_status_output.call_count == 3
@@ -367,7 +393,11 @@ class TestCharm(TestCase):
     @patch("charm.attach_subscription", side_effect=[(0, "")])
     @patch(
         "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_ATTACHED)],
+        side_effect=[
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
+        ],
     )
     def test_config_changed_token_contains_newline(
         self, m_get_status_output, m_attach_subscription
@@ -380,16 +410,15 @@ class TestCharm(TestCase):
         assert m_get_status_output.call_count == 2
         assert m_attach_subscription.call_count == 1
 
-    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED)])
-    def test_config_changed_ppa_contains_newline(self, m_get_status_output):
+    def test_config_changed_ppa_contains_newline(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable\n"})
         self.mocks["check_call"].assert_has_calls(
             [
-                call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.env),
+                call(["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env),
             ]
         )
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
-        assert m_get_status_output.call_count == 1
+        assert self.mocks["status_output"].call_count == 1
 
     @patch("charm.attach_subscription", side_effect=[(0, "")])
     @patch(
@@ -407,8 +436,7 @@ class TestCharm(TestCase):
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
         )
 
-    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED)])
-    def test_config_changed_contract_url(self, m_get_status_output):
+    def test_config_changed_contract_url(self):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
@@ -422,7 +450,7 @@ class TestCharm(TestCase):
         )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        assert m_get_status_output.call_count == 1
+        assert self.mocks["status_output"].call_count == 1
         self.assertEqual(
             self.harness.charm._state.contract_url, "https://contracts.staging.canonical.com"
         )
@@ -464,7 +492,7 @@ class TestCharm(TestCase):
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.mocks["check_call"].assert_has_calls(
-            [call(["ubuntu-advantage", "detach", "--assume-yes"])]
+            [call(["ubuntu-advantage", "detach", "--assume-yes"], env=ANY)]
         )
         self.assertEqual(
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
@@ -480,7 +508,10 @@ class TestCharm(TestCase):
 
     @patch(
         "charm.get_status_output",
-        side_effect=[json.loads(STATUS_DETACHED), json.loads(STATUS_ATTACHED)],
+        side_effect=[
+            json.loads(STATUS_DETACHED),
+            json.loads(STATUS_ATTACHED),
+        ],
     )
     def test_config_changed_unset_contract_url(self, m_get_status_output):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
@@ -518,15 +549,7 @@ class TestCharm(TestCase):
         self.mocks["call"].assert_not_called()
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
 
-    @patch(
-        "charm.get_status_output",
-        side_effect=[
-            json.loads(STATUS_DETACHED),
-            json.loads(STATUS_DETACHED),
-            json.loads(STATUS_DETACHED),
-        ],
-    )
-    def test_config_changed_set_and_unset_proxy_override(self, m_get_status_output):
+    def test_config_changed_set_and_unset_proxy_override(self):
         # Set proxy override once.
         self.harness.update_config(
             {
@@ -570,8 +593,84 @@ class TestCharm(TestCase):
             ]
         )
 
-    @patch("charm.get_status_output", side_effect=[json.loads(STATUS_DETACHED)])
-    def test_setup_proxy_config(self, m_get_status_output):
+    def test_config_changed_set_ssl_cert_file_override(self):
+        # Set proxy override once.
+        self.harness.update_config(
+            {
+                "override-ssl-cert-file": "/etc/ssl/certs/ca-certificates.crt",
+            }
+        )
+        self.mocks["run"].reset_mock()
+        self.harness.update_config(
+            {
+                "token": "token",
+            }
+        )
+        self.mocks["run"].assert_has_calls(
+            [
+                call(
+                    ["ubuntu-advantage", "attach", "token"],
+                    stdout=PIPE,
+                    stderr=PIPE,
+                    env={"SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt"},
+                ),
+            ]
+        )
+        self.mocks["run"].reset_mock()
+
+    @patch("charm.set_livepatch_server", side_effect=[(0, "")])
+    @patch("charm.enable_livepatch_server", side_effect=[(0, "")])
+    def test_canonical_livepatch_no_token(self, m_enable_livepatch_server, m_set_livepatch_server):
+        self.assertFalse(self.harness.charm._state.livepatch_installed)
+        self.harness.update_config({"livepatch_server_url": "https://www.example.com"})
+        self.assertFalse(self.harness.charm._state.livepatch_installed)
+        self.assertEqual(m_enable_livepatch_server.call_count, 0)
+        self.assertEqual(m_set_livepatch_server.call_count, 0)
+        self.assertEqual(self.mocks["install_livepatch"].call_count, 0)
+
+    @patch("charm.get_enabled_services", side_effect=[["esm-apps", "esm-infra", "livepatch"]])
+    @patch("charm.set_livepatch_server", side_effect=[(0, ""), (0, "")])
+    @patch("charm.enable_livepatch_server", side_effect=[(0, "")])
+    @patch("charm.get_status_output", return_value=json.loads(STATUS_ATTACHED))
+    def test_canonical_livepatch_unset_server_livepatch_enabled(
+        self,
+        m_get_status_output,
+        m_enable_livepatch_server,
+        m_set_livepatch_server,
+        m_get_enabled_services,
+    ):
+        self.harness.update_config(
+            {"livepatch_server_url": "https://www.example.com", "livepatch_token": "new-token"}
+        )
+        self.mocks["check_call"].reset_mock()
+        self.harness.update_config({"livepatch_server_url": "", "livepatch_token": ""})
+        self.assertEqual(self.mocks["install_livepatch"].call_count, 1)
+        self.assertEqual(self.mocks["disable_livepatch"].call_count, 2)
+        self.assertEqual(m_enable_livepatch_server.call_count, 1)
+        self.assertEqual(m_set_livepatch_server.call_count, 2)
+        self.assertEqual(m_get_enabled_services.call_count, 1)
+        self.mocks["check_call"].assert_has_calls(
+            [call(["ubuntu-advantage", "enable", "livepatch"], env=ANY)]
+        )
+
+    @patch("charm.get_enabled_services", side_effect=[[]])
+    @patch("charm.set_livepatch_server", side_effect=[(0, ""), (0, "")])
+    @patch("charm.enable_livepatch_server", side_effect=[(0, "")])
+    def test_canonical_livepatch_unset_server_unattached(
+        self, m_enable_livepatch_server, m_set_livepatch_server, m_get_enabled_services
+    ):
+        self.harness.update_config(
+            {"livepatch_server_url": "https://www.example.com", "livepatch_token": "new-token"}
+        )
+        self.assertTrue(self.harness.charm._state.livepatch_installed)
+        self.harness.update_config({"livepatch_server_url": "", "livepatch_token": ""})
+        self.assertEqual(self.mocks["install_livepatch"].call_count, 1)
+        self.assertEqual(self.mocks["disable_livepatch"].call_count, 2)
+        self.assertEqual(m_enable_livepatch_server.call_count, 1)
+        self.assertEqual(m_set_livepatch_server.call_count, 2)
+        self.assertEqual(m_get_enabled_services.call_count, 1)
+
+    def test_setup_proxy_config(self):
         self.harness.update_config(
             {
                 "override-http-proxy": TEST_PROXY_URL,
@@ -580,8 +679,8 @@ class TestCharm(TestCase):
         )
 
         self.harness.charm._setup_proxy_env()
-        self.assertEqual(self.harness.charm.env["http_proxy"], TEST_PROXY_URL)
-        self.assertEqual(self.harness.charm.env["https_proxy"], TEST_PROXY_URL)
+        self.assertEqual(self.harness.charm.proxy_env["http_proxy"], TEST_PROXY_URL)
+        self.assertEqual(self.harness.charm.proxy_env["https_proxy"], TEST_PROXY_URL)
 
     def test_setup_proxy_env(self):
         self.mocks["environ"].update(
@@ -593,21 +692,33 @@ class TestCharm(TestCase):
         )
 
         self.harness.charm._setup_proxy_env()
-        self.assertEqual(self.harness.charm.env["http_proxy"], TEST_PROXY_URL)
-        self.assertEqual(self.harness.charm.env["https_proxy"], TEST_PROXY_URL)
-        self.assertEqual(self.harness.charm.env["no_proxy"], TEST_NO_PROXY)
+        self.assertEqual(self.harness.charm.proxy_env["http_proxy"], TEST_PROXY_URL)
+        self.assertEqual(self.harness.charm.proxy_env["https_proxy"], TEST_PROXY_URL)
+        self.assertEqual(self.harness.charm.proxy_env["no_proxy"], TEST_NO_PROXY)
+
+    def test_setup_ssl_config(self):
+        self.harness.update_config(
+            {
+                "override-ssl-cert-file": "/etc/ssl/certs/ca-certificates.crt",
+            }
+        )
+
+        self.harness.charm._setup_ssl_env()
+        self.assertEqual(
+            self.harness.charm.ssl_env["SSL_CERT_FILE"], "/etc/ssl/certs/ca-certificates.crt"
+        )
 
     def _add_ua_proxy_setup_calls(self, call_list, append=True):
         """Helper to generate the calls used for UA proxy setup."""
         proxy_calls = []
-        if self.env["http_proxy"]:
+        if self.proxy_env["http_proxy"]:
             proxy_calls.append(
                 call(
                     [
                         "ubuntu-advantage",
                         "config",
                         "set",
-                        "http_proxy={}".format(self.env["http_proxy"]),
+                        "http_proxy={}".format(self.proxy_env["http_proxy"]),
                     ]
                 )
             )
@@ -623,14 +734,14 @@ class TestCharm(TestCase):
                 )
             )
 
-        if self.env["https_proxy"]:
+        if self.proxy_env["https_proxy"]:
             proxy_calls.append(
                 call(
                     [
                         "ubuntu-advantage",
                         "config",
                         "set",
-                        "https_proxy={}".format(self.env["https_proxy"]),
+                        "https_proxy={}".format(self.proxy_env["https_proxy"]),
                     ]
                 )
             )

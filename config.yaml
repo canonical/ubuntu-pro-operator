@@ -24,3 +24,23 @@ options:
     default: ""
     description: https-proxy which can override juju https-proxy
     type: string
+  override-ssl-cert-file:
+    default: ""
+    description: Path to a custom SSL certificate file to use for the Ubuntu Pro client actions.
+    type: string
+  livepatch_server_url:
+    default: ""
+    description: URL of the livepatch on-prem server. Unsetting will revert the on-prem server to the default server (https://livepatch.canonical.com).
+    type: string
+  livepatch_token:
+    default: ""
+    description:
+      Authorization token for the livepatch on-prem server. Required if livepatch_server_url is set.
+      Unsetting will revert the on-prem server to the default server (https://livepatch.canonical.com).
+    type: string
+  services:
+    default: ""
+    description:
+      A comma-separated list of services to enable when attaching to a pro subscription. This list overrides the default services. If specified, only these services will be activated. If left empty, the default services are activated.
+      A list of possible services can be found by running "pro status --all" on a machine with the ubuntu-pro-client package installed.
+    type: string
