@@ -20,7 +20,20 @@ from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 
 from exceptions import ProcessExecutionError
-from utils.retry import retry
+from livepatch import (
+    disable_canonical_livepatch,
+    enable_livepatch_server,
+    install_livepatch,
+    set_livepatch_server,
+)
+from pro_client import (
+    attach_status,
+    attach_sub,
+    detach_sub,
+    enable_service,
+    get_enabled_services,
+)
+from utils import parse_services, retry, update_configuration
 
 logger = logging.getLogger(__name__)
 
@@ -35,192 +48,6 @@ def install_ppa(ppa, env):
 def remove_ppa(ppa, env):
     """Remove specified ppa."""
     subprocess.check_call(["add-apt-repository", "--remove", "--yes", ppa], env=env)
-
-
-def update_configuration(contract_url):
-    """Write the contract_url to the uaclient configuration file."""
-    with open("/etc/ubuntu-advantage/uaclient.conf", "r+") as f:
-        client_config = yaml.safe_load(f)
-        client_config["contract_url"] = contract_url
-        f.seek(0)
-        yaml.dump(client_config, f)
-        f.truncate()
-
-
-def detach_subscription(env):
-    """Detach from any ubuntu-advantage subscription."""
-    logger.info("Detaching ubuntu-advantage subscription")
-    subprocess.check_call(["ubuntu-advantage", "detach", "--assume-yes"], env=env)
-
-
-def set_livepatch_server(server):
-    """Set the livepatch server."""
-    logger.info("Setting livepatch on-prem server")
-    result = subprocess.run(
-        ["canonical-livepatch", "config", f"remote-server={server}"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if result.returncode != 0:
-        stdout = (
-            result.stdout.decode("utf-8", errors="ignore")
-            if isinstance(result.stdout, bytes)
-            else result.stdout
-        )
-        stderr = (
-            result.stderr.decode("utf-8", errors="ignore")
-            if isinstance(result.stderr, bytes)
-            else result.stderr
-        )
-        logger.error("Error setting canonical-livepatch server: %s", stderr)
-        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
-
-
-def enable_livepatch_server(token):
-    """Enable livepatch with the specified token."""
-    logger.info("Enabling livepatch on-prem server using auth token")
-    result = subprocess.run(
-        ["canonical-livepatch", "enable", token], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    if result.returncode != 0:
-        stdout = (
-            result.stdout.decode("utf-8", errors="ignore")
-            if isinstance(result.stdout, bytes)
-            else result.stdout
-        )
-        stderr = (
-            result.stderr.decode("utf-8", errors="ignore")
-            if isinstance(result.stderr, bytes)
-            else result.stderr
-        )
-        logger.error("Error running canonical-livepatch enable: %s", stderr)
-        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
-
-
-def install_livepatch():
-    """Install the canonical-livepatch package."""
-    logger.info("Installing package canonical-livepatch")
-    subprocess.check_call(["snap", "install", "canonical-livepatch"])
-
-
-def disable_canonical_livepatch():
-    """Disable the canonical-livepatch."""
-    result = subprocess.run(
-        ["canonical-livepatch", "disable"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    if result.returncode != 0:
-        stdout = (
-            result.stdout.decode("utf-8", errors="ignore")
-            if isinstance(result.stdout, bytes)
-            else result.stdout
-        )
-        stderr = (
-            result.stderr.decode("utf-8", errors="ignore")
-            if isinstance(result.stderr, bytes)
-            else result.stderr
-        )
-        logger.error("Error running canonical-livepatch disable: %s", stderr)
-        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
-
-
-def ua_enable_service(service, env):
-    """Enable a ubuntu-advantage service."""
-    subprocess.check_call(["ubuntu-advantage", "enable", service], env=env)
-
-
-def parse_services(services_str):
-    """Parse a comma-separated string of services into a list."""
-    return (
-        [service.strip() for service in services_str.split(",") if service.strip() != ""]
-        if services_str and services_str.strip() != ""
-        else None
-    )
-
-
-@contextmanager
-def create_attach_config(token, services=None):
-    """Create an attach config file with the specified token."""
-    attach_config = {"token": token, "enable_services": services}
-    try:
-        with NamedTemporaryFile(mode="w", suffix=".yaml", prefix="pro_attach") as f:
-            yaml.dump(attach_config, f, default_flow_style=False)
-            temp_file_path = f.name
-            logger.info("Created attach config file: %s", temp_file_path)
-            yield temp_file_path
-    except IOError as e:
-        logger.error("Error creating attach config file: %s", str(e))
-        raise e
-
-
-@retry(ProcessExecutionError)
-def attach_subscription(token, env, services=None):
-    """Attach an ubuntu-advantage subscription using the specified token and services."""
-    if services:
-        with create_attach_config(token, services) as attach_config_path:
-            result = subprocess.run(
-                ["ubuntu-advantage", "attach", "--attach-config", attach_config_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-            )
-    else:
-        result = subprocess.run(
-            ["ubuntu-advantage", "attach", token],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env,
-        )
-    if result.returncode != 0:
-        stdout = (
-            result.stdout.decode("utf-8", errors="ignore")
-            if isinstance(result.stdout, bytes)
-            else result.stdout
-        )
-        stderr = (
-            result.stderr.decode("utf-8", errors="ignore")
-            if isinstance(result.stderr, bytes)
-            else result.stderr
-        )
-        logger.error("Error running attach. stderr %s\nstdout: %s", stderr, stdout)
-        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
-
-
-@retry(ProcessExecutionError)
-def get_status_output(env):
-    """Return the parsed output from ubuntu-advantage status."""
-    result = subprocess.run(
-        ["ubuntu-advantage", "status", "--all", "--format", "json"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=env,
-    )
-    if result.returncode != 0:
-        stdout = (
-            result.stdout.decode("utf-8", errors="ignore")
-            if isinstance(result.stdout, bytes)
-            else result.stdout
-        )
-        stderr = (
-            result.stderr.decode("utf-8", errors="ignore")
-            if isinstance(result.stderr, bytes)
-            else result.stderr
-        )
-        logger.error("Error running status. stderr %s\nstdout: %s", stderr, stdout)
-        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
-    output = result.stdout
-    # handle different return type from xenial
-    if isinstance(output, bytes):
-        output = output.decode("utf-8")
-    return json.loads(output)
-
-
-def get_enabled_services(status):
-    """Return a list of enabled services."""
-    services = []
-    for service in status.get("services"):
-        if service.get("status") in ["enabled", "warning"]:
-            services.append(service.get("name"))
-    return services
 
 
 class UbuntuAdvantageCharm(CharmBase):
@@ -335,16 +162,15 @@ class UbuntuAdvantageCharm(CharmBase):
                 self._state.livepatch_installed and self._state.hashed_livepatch_token is not None
             ):
                 # Set to default server
-                status = get_status_output(self.ssl_env)
-                is_attached = status.get("attached")
-                enabled_services = get_enabled_services(status)
+                enabled_services = get_enabled_services()
                 logger.info("Setting livepatch on-prem server to default")
                 set_livepatch_server(DEFAULT_LIVEPATCH_SERVER)
                 # Disabling canonical-livepatch when already disabled does not throw an error
                 disable_canonical_livepatch()
+                is_attached = attach_status()
                 if is_attached and "livepatch" in enabled_services:
                     logger.info("Enabling livepatch hosted server using Pro client")
-                    ua_enable_service("livepatch", self.ssl_env)
+                    enable_service("livepatch")
                 self._state.hashed_livepatch_token = None
         except ProcessExecutionError as e:
             logger.error("Failed to configure livepatch: %s", str(e))
@@ -371,13 +197,9 @@ class UbuntuAdvantageCharm(CharmBase):
             update_configuration(contract_url)
             self._state.contract_url = contract_url
 
-        try:
-            status = get_status_output(self.ssl_env)
-        except ProcessExecutionError as e:
-            self.unit.status = BlockedStatus(str(e))
-            return
-        if status["attached"] and (config_changed or token_changed):
-            detach_subscription(self.ssl_env)
+        is_attached = attach_status()
+        if is_attached and (config_changed or token_changed):
+            detach_sub()
             self._state.hashed_token = None
 
         if not token:
@@ -387,16 +209,15 @@ class UbuntuAdvantageCharm(CharmBase):
             logger.info("Attaching ubuntu-advantage subscription")
             try:
                 enable_services = parse_services(self.config.get("services", "").strip())
-                attach_subscription(token, self.ssl_env, services=enable_services)
-            except ProcessExecutionError as e:
+                res = attach_sub(token, enable_services, auto_enable=True)
+            except Exception as e:
                 self.unit.status = BlockedStatus(str(e))
                 return
             self._state.hashed_token = hashed_token
 
     def _handle_status_state(self):
         """Parse status output to determine which services are active."""
-        status = get_status_output(self.ssl_env)
-        services = get_enabled_services(status)
+        services = get_enabled_services()
         message = "Attached (" + ",".join(services) + ")"
         self.unit.status = ActiveStatus(message)
 

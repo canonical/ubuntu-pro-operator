@@ -33,8 +33,7 @@ async def test_attach_invalid_token(ops_test: OpsTest):
     await charm.set_config({"token": "new-token-2"})
     await ops_test.model.wait_for_idle()
 
-    expected_error = "Failed running command '['ubuntu-advantage', 'attach', 'new-token-2']' \
-[exit status: 1].\nstderr: Invalid token. See https://ubuntu.com/pro/dashboard\n\nstdout: "
+    expected_error = "Invalid token. See https://ubuntu.com/pro/dashboard"
     unit = charm.units[0]
     assert unit.workload_status == BlockedStatus.name
     assert unit.workload_status_message == expected_error
@@ -47,7 +46,7 @@ async def test_attach_services(ops_test: OpsTest):
     charm = ops_test.model.applications["ubuntu-advantage"]
 
     # Attach to pro subscription with services
-    await charm.set_config({"services": "esm-infra,cis", "token": f"{test_token}"})
+    await charm.set_config({"services": "esm-infra,usg", "token": f"{test_token}"})
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]
