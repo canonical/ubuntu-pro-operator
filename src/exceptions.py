@@ -20,5 +20,7 @@ class ProcessExecutionError(Exception):
         self.ret_code = ret_code
         self.stdout = stdout
         self.stderr = stderr
-        message = f"Failed running command '{self.cmd}' [exit status: {self.ret_code}].\nstderr: {self.stderr}\nstdout: {self.stdout}"  # noqa
+        message = "Failed running command '{}' [exit status: {}].\nstderr: {}\nstdout: {}".format(
+            self.cmd, self.ret_code, self.stderr, self.stdout
+        )
         super().__init__(message)

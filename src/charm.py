@@ -57,7 +57,7 @@ def set_livepatch_server(server):
     """Set the livepatch server."""
     logger.info("Setting livepatch on-prem server")
     result = subprocess.run(
-        ["canonical-livepatch", "config", f"remote-server={server}"],
+        ["canonical-livepatch", "config", "remote-server={}".format(server)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )

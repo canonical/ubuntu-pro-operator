@@ -47,7 +47,7 @@ async def test_attach_services(ops_test: OpsTest):
     charm = ops_test.model.applications["ubuntu-advantage"]
 
     # Attach to pro subscription with services
-    await charm.set_config({"services": "esm-infra,cis", "token": f"{test_token}"})
+    await charm.set_config({"services": "esm-infra,cis", "token": test_token})
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]
