@@ -1,12 +1,14 @@
+# Copyright 2024 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+"""Canonical livepatch functions."""
+
 import logging
-import os
 import subprocess
 
 from exceptions import ProcessExecutionError
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_LIVEPATCH_SERVER = "https://livepatch.canonical.com"
 
 
 def set_livepatch_server(server):

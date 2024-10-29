@@ -5,21 +5,17 @@
 """Charmed Operator to enable Ubuntu Pro (https://ubuntu.com/pro) subscriptions."""
 
 import hashlib
-import json
 import logging
 import os
 import subprocess
-from contextlib import contextmanager
-from tempfile import NamedTemporaryFile
 
-import yaml
 from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 
-from exceptions import ProcessExecutionError
+from exceptions import APIError, ProcessExecutionError
 from livepatch import (
     disable_canonical_livepatch,
     enable_livepatch_server,
@@ -33,7 +29,7 @@ from pro_client import (
     enable_service,
     get_enabled_services,
 )
-from utils import parse_services, retry, update_configuration
+from utils import parse_services, update_configuration
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +195,12 @@ class UbuntuAdvantageCharm(CharmBase):
 
         is_attached = attach_status()
         if is_attached and (config_changed or token_changed):
-            detach_sub()
+            try:
+                detach_sub()
+            except APIError as e:
+                logger.error("Failed to detach subscription: %s", str(e))
+                self.unit.status = BlockedStatus(str(e))
+                return
             self._state.hashed_token = None
 
         if not token:
@@ -209,8 +210,9 @@ class UbuntuAdvantageCharm(CharmBase):
             logger.info("Attaching ubuntu-advantage subscription")
             try:
                 enable_services = parse_services(self.config.get("services", "").strip())
-                res = attach_sub(token, enable_services, auto_enable=True)
+                attach_sub(token, enable_services, auto_enable=True)
             except Exception as e:
+                logger.error("Failed to attach subscription: %s", str(e))
                 self.unit.status = BlockedStatus(str(e))
                 return
             self._state.hashed_token = hashed_token
