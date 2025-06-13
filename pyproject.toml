@@ -20,19 +20,35 @@ target-version = ["py38"]
 [tool.isort]
 profile = "black"
 
-# Linting tools configuration
-[tool.flake8]
-max-line-length = 99
-max-doc-length = 99
-max-complexity = 10
-exclude = [".git", "__pycache__", ".tox", "build", "dist", "*.egg_info", "venv"]
-select = ["E", "W", "F", "C", "N", "R", "D", "H"]
-# Ignore D107 Missing docstring in __init__
-ignore = ["D107"]
-# D100, D101, D102, D103: Ignore missing docstrings in tests
-per-file-ignores = ["tests/*:D100,D101,D102,D103,D104"]
-docstring-convention = "google"
-# Check for properly formatted copyright header in each file
-copyright-check = "True"
-copyright-author = "Canonical Ltd."
-copyright-regexp = "Copyright\\s\\d{4}([-,]\\d{4})*\\s+%(author)s"
+[tool.ruff]
+line-length = 99
+indent-width = 4
+exclude = [
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "venv",
+    "report",
+    "lib",
+]
+
+[tool.ruff.lint]
+select = [
+    "C",  # flake8-comprehensions
+    "C9", # mccabe
+    "D",  # pydocstyle
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "W",  # pycodestyle warnings
+]
+ignore = ["D107", "D203", "D213", "D401", "D406", "D407"]
+per-file-ignores = { "tests/*" = ["D100", "D101", "D102", "D103", "D104"] }

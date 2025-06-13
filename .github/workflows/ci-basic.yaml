@@ -1,0 +1,35 @@
+---
+name: CI lint and test
+
+on: [push, pull_request]
+
+defaults:
+  run:
+    shell: sh
+
+jobs:
+  lint:
+    name: Linting
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qy update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qy install tox libapt-pkg-dev intltool
+      - name: Git checkout
+        uses: actions/checkout@v3
+      - name: Linting
+        run: tox -e lint
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qy update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qy install tox libapt-pkg-dev
+      - name: Git checkout
+        uses: actions/checkout@v3
+      - name: Unit tests
+        run: tox -e unit
