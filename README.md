@@ -1,11 +1,11 @@
-# charm-ubuntu-advantage
+# ubuntu-pro-operator
 
 This charm enables Ubuntu Pro (https://ubuntu.com/pro) subscriptions.
 
-Despite the rename of Ubuntu Advantage to Ubuntu Pro, the "ubuntu-advantage"
-name remains to avoid breaking  existing deployments of this charm.
+The Pro-charm is the latest version of the charm supporting Ubuntu Pro, and
+replaces the previous `ubuntu-advantage` charm which will not receive further updates.
 
-This charm is maintained by the Ubuntu Pro team within Commercial Systems at
+This charm is maintained by the Ubuntu Pro Client team within the Server team at
 Canonical.
 
 ## Usage
@@ -19,17 +19,8 @@ Be sure to replace `<token>` with a valid value from
 
 ## Development
 
-This charm is developed at https://code.launchpad.net/charm-ubuntu-advantage.
-
-It is released to the `edge` channel via a recipe:
-https://launchpad.net/~ubuntu-advantage-charmers/charm-ubuntu-advantage/+charm/ubuntu-advantage.
-
-It is currently published at https://charmhub.io/ubuntu-advantage, but it is
+It is currently published at https://charmhub.io/ubuntu-pro, but it is
 not promulgated.
-
-In the past, it was also published as https://charmhub.io/ubuntu-pro (also
-not promulgated), but that was discontinued until proper support for charm
-renames is introduced.
 
 ## Proxy config
 
