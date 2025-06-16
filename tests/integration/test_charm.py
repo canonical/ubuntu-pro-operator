@@ -2,31 +2,53 @@
 # See LICENSE file for licensing details.
 
 import os
+import shutil
+from contextlib import contextmanager
 
 import pytest
 from ops.model import ActiveStatus, BlockedStatus
 from pytest_operator.plugin import OpsTest
 
+BUILD_TARGET = os.environ.get("PRO_CHARM_BUILD_TARGET")
+assert BUILD_TARGET is not None
+CHARM_NAME = BUILD_TARGET.split("_")[0]
+
+TEST_TOKEN = os.environ.get("PRO_CHARM_TEST_TOKEN")
+assert TEST_TOKEN is not None
+TEST_LIVEPATCH_TOKEN = os.environ.get("PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN")
+assert TEST_LIVEPATCH_TOKEN is not None
+
+
+@contextmanager
+def configure_build(target):
+    shutil.copyfile(f"charms/{target}/charmcraft.yaml", "charmcraft.yaml")
+    try:
+        yield
+    finally:
+        if os.path.exists("charmcraft.yaml"):
+            os.remove("charmcraft.yaml")
+
 
 @pytest.mark.abort_on_fail
 async def test_build_and_deploy(ops_test: OpsTest):
-    charm = await ops_test.build_charm(".")
+    with configure_build(BUILD_TARGET):
+        charm = await ops_test.build_charm(".")
     await ops_test.model.deploy("ubuntu")
     await ops_test.model.deploy(charm, num_units=0)
     await ops_test.model.add_relation(
         "ubuntu",
-        "ubuntu-advantage",
+        CHARM_NAME,
     )
     await ops_test.model.wait_for_idle()
 
 
 async def test_status(ops_test: OpsTest):
     assert ops_test.model.applications["ubuntu"].status == ActiveStatus.name
-    assert ops_test.model.applications["ubuntu-advantage"].status == BlockedStatus.name
+    assert ops_test.model.applications[CHARM_NAME].status == BlockedStatus.name
 
 
 async def test_attach_invalid_token(ops_test: OpsTest):
-    charm = ops_test.model.applications["ubuntu-advantage"]
+    charm = ops_test.model.applications[CHARM_NAME]
     await charm.set_config({"token": ""})
     await ops_test.model.wait_for_idle()
 
@@ -41,13 +63,10 @@ async def test_attach_invalid_token(ops_test: OpsTest):
 
 
 async def test_attach_services(ops_test: OpsTest):
-    # Set test token to environment variable PRO_CHARM_TEST_TOKEN
-    # bash: export PRO_CHARM_TEST_TOKEN="your-token"
-    test_token = os.environ.get("PRO_CHARM_TEST_TOKEN")
-    charm = ops_test.model.applications["ubuntu-advantage"]
+    charm = ops_test.model.applications[CHARM_NAME]
 
     # Attach to pro subscription with services
-    await charm.set_config({"services": "esm-infra,cis", "token": test_token})
+    await charm.set_config({"services": "esm-infra,cis", "token": TEST_TOKEN})
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]
@@ -61,10 +80,9 @@ async def test_attach_services(ops_test: OpsTest):
 
 
 async def test_empty_livepatch_config(ops_test: OpsTest):
-    charm = ops_test.model.applications["ubuntu-advantage"]
-    test_token = os.environ.get("PRO_CHARM_TEST_TOKEN")
+    charm = ops_test.model.applications[CHARM_NAME]
 
-    await charm.set_config({"token": test_token, "livepatch_token": ""})
+    await charm.set_config({"token": TEST_TOKEN, "livepatch_token": ""})
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]
@@ -77,15 +95,13 @@ async def test_empty_livepatch_config(ops_test: OpsTest):
 
 
 async def test_livepatch_server_success(ops_test: OpsTest):
-    charm = ops_test.model.applications["ubuntu-advantage"]
-    test_pro_token = os.environ.get("PRO_CHARM_TEST_TOKEN")
-    test_livepatch_token = os.environ.get("PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN")
+    charm = ops_test.model.applications[CHARM_NAME]
 
     await charm.set_config(
         {
             "livepatch_server_url": "https://livepatch.staging.canonical.com",
-            "livepatch_token": test_livepatch_token,
-            "token": test_pro_token,
+            "livepatch_token": TEST_LIVEPATCH_TOKEN,
+            "token": TEST_TOKEN,
         }
     )
     await ops_test.model.wait_for_idle()
@@ -100,7 +116,7 @@ async def test_livepatch_server_success(ops_test: OpsTest):
 
 
 async def test_livepatch_server_set_fails(ops_test: OpsTest):
-    charm = ops_test.model.applications["ubuntu-advantage"]
+    charm = ops_test.model.applications[CHARM_NAME]
     await charm.set_config(
         {"livepatch_server_url": "https://www.example.com", "livepatch_token": "new-token"}
     )
@@ -110,7 +126,7 @@ async def test_livepatch_server_set_fails(ops_test: OpsTest):
 
 
 async def test_detach_subscription(ops_test: OpsTest):
-    charm = ops_test.model.applications["ubuntu-advantage"]
+    charm = ops_test.model.applications[CHARM_NAME]
     await charm.set_config({"token": ""})
     await ops_test.model.wait_for_idle()
 
