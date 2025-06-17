@@ -1,0 +1,30 @@
+type: charm
+links:
+  issues: https://github.com/canonical/ubuntu-pro-operator/issues
+  source: https://github.com/canonical/ubuntu-pro-operator
+subordinate: true
+requires:
+  juju-info:
+    interface: juju-info
+    scope: container
+
+name: ubuntu-advantage
+summary: This charm enables Ubuntu Pro (https://ubuntu.com/pro) subscriptions.
+description: |
+  This is the old name for the Ubuntu Pro charm. The same charm is now published as "ubuntu-pro".
+
+  This charm enables Ubuntu Pro subscriptions on a principal charm using the ubuntu-pro-client.
+
+bases:
+  - build-on:
+    - name: ubuntu
+      channel: "22.04"
+    run-on:
+    - name: ubuntu
+      channel: "16.04"
+    - name: ubuntu
+      channel: "18.04"
+    - name: ubuntu
+      channel: "20.04"
+    - name: ubuntu
+      channel: "22.04"
