@@ -55,11 +55,28 @@ async def test_attach_invalid_token(ops_test: OpsTest):
     await charm.set_config({"token": "new-token-2"})
     await ops_test.model.wait_for_idle()
 
-    expected_error = "Failed running command '['ubuntu-advantage', 'attach', 'new-token-2']' \
-[exit status: 1].\nstderr: Invalid token. See https://ubuntu.com/pro/dashboard\n\nstdout: "
+    expected_error = "stderr: Invalid token."
     unit = charm.units[0]
     assert unit.workload_status == BlockedStatus.name
-    assert unit.workload_status_message == expected_error
+    assert expected_error in unit.workload_status_message
+    assert "new-token-2" not in unit.workload_status_message
+
+
+async def test_attach_default_services(ops_test: OpsTest):
+    charm = ops_test.model.applications[CHARM_NAME]
+
+    # Attach to pro subscription without specifying services
+    await charm.set_config({"token": TEST_TOKEN})
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == ActiveStatus.name
+    assert unit.workload_status_message == "Attached (esm-apps,esm-infra)"
+
+    # Detach from pro subscription
+    await charm.set_config({"token": ""})
+    await ops_test.model.wait_for_idle()
+    assert unit.workload_status == BlockedStatus.name
 
 
 async def test_attach_services(ops_test: OpsTest):
@@ -123,6 +140,7 @@ async def test_livepatch_server_set_fails(ops_test: OpsTest):
     await ops_test.model.wait_for_idle()
     unit = charm.units[0]
     assert unit.workload_status == BlockedStatus.name
+    assert "new-token" not in unit.workload_status_message
 
 
 async def test_detach_subscription(ops_test: OpsTest):

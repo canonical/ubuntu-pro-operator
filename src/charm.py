@@ -94,7 +94,9 @@ def enable_livepatch_server(token):
             else result.stderr
         )
         logger.error("Error running canonical-livepatch enable: %s", stderr)
-        raise ProcessExecutionError(result.args, result.returncode, stdout, stderr)
+        raise ProcessExecutionError(
+            "canonical-livepatch enable $TOKEN", result.returncode, stdout, stderr
+        )
 
 
 def install_livepatch():
@@ -155,17 +157,9 @@ def create_attach_config(token, services=None):
 @retry(ProcessExecutionError)
 def attach_subscription(token, env, services=None):
     """Attach an ubuntu-advantage subscription using the specified token and services."""
-    if services:
-        with create_attach_config(token, services) as attach_config_path:
-            result = subprocess.run(
-                ["ubuntu-advantage", "attach", "--attach-config", attach_config_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-            )
-    else:
+    with create_attach_config(token, services) as attach_config_path:
         result = subprocess.run(
-            ["ubuntu-advantage", "attach", token],
+            ["ubuntu-advantage", "attach", "--attach-config", attach_config_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
