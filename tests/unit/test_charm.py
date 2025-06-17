@@ -609,7 +609,7 @@ class TestCharm(TestCase):
         self.mocks["run"].assert_has_calls(
             [
                 call(
-                    ["ubuntu-advantage", "attach", "token"],
+                    ["ubuntu-advantage", "attach", "--attach-config", ANY],
                     stdout=PIPE,
                     stderr=PIPE,
                     env={"SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt"},
