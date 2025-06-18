@@ -156,7 +156,24 @@ def create_attach_config(token, services=None):
 
 @retry(ProcessExecutionError)
 def attach_subscription(token, env, services=None):
-    """Attach an ubuntu-advantage subscription using the specified token and services."""
+    """Attach to an Ubuntu Pro subscription.
+
+    Ensures the system is attached to Ubuntu Pro using the specified token
+    and with the specified services enabled, detaching first in case the
+    system is already attached.
+    """
+    try:
+        status = get_status_output(env)
+    except ProcessExecutionError as e:
+        logger.warning("Error getting status before attempting to attach: %s", str(e))
+        # in this case, we will try to detach just in case, so set status to attached
+        status = {"attached": True}
+    if status["attached"]:
+        try:
+            detach_subscription(env)
+        except subprocess.CalledProcessError as e:
+            logger.warning("Error detaching subscription before attaching: %s", str(e))
+
     with create_attach_config(token, services) as attach_config_path:
         result = subprocess.run(
             ["ubuntu-advantage", "attach", "--attach-config", attach_config_path],
@@ -365,16 +382,15 @@ class UbuntuAdvantageCharm(CharmBase):
             update_configuration(contract_url)
             self._state.contract_url = contract_url
 
-        try:
-            status = get_status_output(self.ssl_env)
-        except ProcessExecutionError as e:
-            self.unit.status = BlockedStatus(str(e))
-            return
-        if status["attached"] and (config_changed or token_changed):
-            detach_subscription(self.ssl_env)
-            self._state.hashed_token = None
-
         if not token:
+            try:
+                status = get_status_output(self.ssl_env)
+            except ProcessExecutionError as e:
+                self.unit.status = BlockedStatus(str(e))
+                return
+            if status["attached"] and (config_changed or token_changed):
+                detach_subscription(self.ssl_env)
+                self._state.hashed_token = None
             self.unit.status = BlockedStatus("No token configured")
             return
         elif config_changed or token_changed:

@@ -209,7 +209,6 @@ class TestCharm(TestCase):
     @patch(
         "charm.get_status_output",
         side_effect=[
-            json.loads(STATUS_DETACHED),
             json.loads(STATUS_ATTACHED),
         ],
     )
@@ -227,7 +226,7 @@ class TestCharm(TestCase):
         )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        assert m_get_status_output.call_count == 2
+        assert m_get_status_output.call_count == 1
         assert m_attach_subscription.call_count == 1
         self.assertEqual(
             self.harness.charm._state.hashed_token,
@@ -241,10 +240,6 @@ class TestCharm(TestCase):
     @patch(
         "charm.get_status_output",
         side_effect=[
-            json.loads(STATUS_DETACHED),
-            json.loads(STATUS_DETACHED),
-            json.loads(STATUS_ATTACHED),
-            json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
         ],
@@ -266,7 +261,7 @@ class TestCharm(TestCase):
         )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        assert m_get_status_output.call_count == 2
+        assert m_get_status_output.call_count == 1
         assert m_attach_subscription.call_count == 1
         self.assertEqual(
             self.harness.charm._state.hashed_token,
@@ -275,13 +270,9 @@ class TestCharm(TestCase):
 
         self.mocks["check_call"].reset_mock()
         self.harness.update_config({"token": "test-token-2"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
-        self.mocks["check_call"].assert_has_calls(
-            self._add_ua_proxy_setup_calls(
-                [call(["ubuntu-advantage", "detach", "--assume-yes"], env=ANY)], append=False
-            )
-        )
-        assert m_get_status_output.call_count == 4
+        self.assertEqual(self.mocks["check_call"].call_count, 2)
+        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([]))
+        assert m_get_status_output.call_count == 2
         assert m_attach_subscription.call_count == 2
         self.assertEqual(
             self.harness.charm._state.hashed_token,
@@ -317,7 +308,7 @@ class TestCharm(TestCase):
     )
     def test_config_changed_attach_failure(self, m_attach_subscription):
         self.harness.update_config({"token": "test-token"})
-        assert self.mocks["status_output"].call_count == 1
+        assert self.mocks["status_output"].call_count == 0
         assert m_attach_subscription.call_count == 1
         message = (
             "Failed running command 'attach' [exit status: 1].\nstderr: Invalid token\nstdout: "
@@ -344,9 +335,6 @@ class TestCharm(TestCase):
         side_effect=[
             json.loads(STATUS_ATTACHED),
             json.loads(STATUS_ATTACHED),
-            json.loads(STATUS_ATTACHED),
-            json.loads(STATUS_ATTACHED),
-            json.loads(STATUS_ATTACHED),
         ],
     )
     @patch("charm.attach_subscription", side_effect=[(0, "")])
@@ -365,7 +353,7 @@ class TestCharm(TestCase):
                 [call(["ubuntu-advantage", "detach", "--assume-yes"], env=ANY)], append=False
             )
         )
-        assert m_get_status_output.call_count == 3
+        assert m_get_status_output.call_count == 2
         assert m_attach_subscription.call_count == 1
         self.assertIsNone(self.harness.charm._state.hashed_token)
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
@@ -374,7 +362,6 @@ class TestCharm(TestCase):
     @patch(
         "charm.get_status_output",
         side_effect=[
-            json.loads(STATUS_DETACHED),
             json.loads(STATUS_DETACHED),
             json.loads(STATUS_ATTACHED),
         ],
@@ -386,7 +373,7 @@ class TestCharm(TestCase):
         self.assertIsInstance(self.harness.model.unit.status, BlockedStatus)
 
         self.harness.update_config({"token": "test-token"})
-        assert m_get_status_output.call_count == 3
+        assert m_get_status_output.call_count == 2
         assert m_attach_subscription.call_count == 1
         self.assertIsInstance(self.harness.model.unit.status, ActiveStatus)
 
@@ -407,7 +394,7 @@ class TestCharm(TestCase):
             self.harness.charm._state.hashed_token,
             "4c5dc9b7708905f77f5e5d16316b5dfb425e68cb326dcd55a860e90a7707031e",
         )
-        assert m_get_status_output.call_count == 2
+        assert m_get_status_output.call_count == 1
         assert m_attach_subscription.call_count == 1
 
     def test_config_changed_ppa_contains_newline(self):
@@ -424,7 +411,6 @@ class TestCharm(TestCase):
     @patch(
         "charm.get_status_output",
         side_effect=[
-            json.loads(bytes(STATUS_DETACHED, "utf-8")),
             json.loads(bytes(STATUS_ATTACHED, "utf-8")),
         ],
     )
@@ -491,9 +477,7 @@ class TestCharm(TestCase):
         )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
-        self.mocks["check_call"].assert_has_calls(
-            [call(["ubuntu-advantage", "detach", "--assume-yes"], env=ANY)]
-        )
+        self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([]))
         self.assertEqual(
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
         )
@@ -503,7 +487,7 @@ class TestCharm(TestCase):
         mock_open(self.mocks["open"], read_data=DEFAULT_CLIENT_CONFIG)
         self.harness.update_config()
         self.mocks["open"].assert_not_called()
-        assert m_get_status_output.call_count == 6
+        assert m_get_status_output.call_count == 3
         assert m_attach_subscription.call_count == 2
 
     @patch(
