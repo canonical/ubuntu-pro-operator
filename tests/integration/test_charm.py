@@ -1,6 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import json
 import os
 import shutil
 from contextlib import contextmanager
@@ -89,6 +90,33 @@ async def test_attach_services(ops_test: OpsTest):
     unit = charm.units[0]
     assert unit.workload_status == ActiveStatus.name
     assert unit.workload_status_message == "Attached (esm-infra,usg)"
+
+    # Detach from pro subscription
+    await charm.set_config({"token": "", "services": ""})
+    await ops_test.model.wait_for_idle()
+    assert unit.workload_status == BlockedStatus.name
+
+
+async def test_detach_before_attach(ops_test: OpsTest):
+    charm = ops_test.model.applications[CHARM_NAME]
+    unit = charm.units[0]
+
+    # Attach to pro subscription with services "manually" to get the unit
+    # in a weird state to test the detach before attach logic.
+    action = await unit.run(f"sudo pro attach {TEST_TOKEN} --no-auto-enable")
+    await action.wait()
+    action = await unit.run("sudo pro api u.pro.status.is_attached.v1")
+    await action.wait()
+    assert json.loads(action.results["stdout"])["data"]["attributes"]["is_attached"] is True
+
+    # Attach to pro subscription with services
+    # This will detach the existing attachment and then attach.
+    # We will know the second attachment succeeded because it will enable esm-infra.
+    await charm.set_config({"services": "esm-infra", "token": TEST_TOKEN})
+    await ops_test.model.wait_for_idle()
+
+    assert unit.workload_status == ActiveStatus.name
+    assert unit.workload_status_message == "Attached (esm-infra)"
 
     # Detach from pro subscription
     await charm.set_config({"token": "", "services": ""})
