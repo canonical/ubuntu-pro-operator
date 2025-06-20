@@ -96,6 +96,48 @@ async def test_attach_services(ops_test: OpsTest):
     assert unit.workload_status == BlockedStatus.name
 
 
+async def test_attach_retries_detach(ops_test: OpsTest):
+    charm = ops_test.model.applications[CHARM_NAME]
+    unit = charm.units[0]
+
+    # THIS IS BRITTLE AND I'M SORRY TO WHOEVER IS READING THIS :)
+    # Edit the pro-client code so that it fails on the first attempt to attach.
+    # The attach itself will work, but when it tries to enable esm-infra, this hacked snippet will
+    # raise an exception.
+    # It will raise an exception because we will touch the reboot-cmd-marker-file that the hacked
+    # snippet looks for.
+    # Because only the enablement fails after the attach succeeds, this will be considered a
+    # "partial attach". That means the machine will be attached, but no services enabled and the
+    # attach command will exit non-zero, triggering the charm's retry logic that we want to test!
+    # When the charm retries, it will first detach, which will clean up the reboot-cmd-marker-file.
+    # ^ THIS IS WHAT WE WANT TO TEST - THAT THE DETACH WILL RUN IN BETWEEN THE ATTACH ATTEMPTS.
+    # Then it will try to attach again. This time, both the attach and enable will succeed because
+    # the reboot-cmd-marker-file that the terrible hack snippet looks for will be gone.
+    terrible_hack = 'from uaclient.files.state_files import reboot_cmd_marker_file;\\n    if reboot_cmd_marker_file.is_present: raise Exception("terrible hack")'  # noqa: E501
+    terrible_sed_command = (
+        "sed -i '/^def enable_entitlement_by_name(/,/^):$/{/^):$/ s/$/\\n    %s/;}' /usr/lib/python3/dist-packages/uaclient/actions.py"  # noqa: E501,W505
+        % terrible_hack
+    )
+    action = await unit.run(terrible_sed_command)
+    await action.wait()
+    action = await unit.run("sudo touch /var/lib/ubuntu-advantage/marker-reboot-cmds-required")
+    await action.wait()
+
+    # Attach to pro subscription with services
+    # This will fail on the first try.
+    # Then it should detach and then attach again.
+    await charm.set_config({"services": "esm-infra", "token": TEST_TOKEN})
+    await ops_test.model.wait_for_idle()
+
+    assert unit.workload_status == ActiveStatus.name
+    assert unit.workload_status_message == "Attached (esm-infra)"
+
+    # Detach from pro subscription
+    await charm.set_config({"token": "", "services": ""})
+    await ops_test.model.wait_for_idle()
+    assert unit.workload_status == BlockedStatus.name
+
+
 async def test_empty_livepatch_config(ops_test: OpsTest):
     charm = ops_test.model.applications[CHARM_NAME]
 

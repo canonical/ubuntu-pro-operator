@@ -154,7 +154,15 @@ def create_attach_config(token, services=None):
         raise e
 
 
-@retry(ProcessExecutionError)
+def attach_subscription_retry_compensating_action(token, env, services=None):
+    """To be run before retrying attach_subscription."""
+    try:
+        detach_subscription(env)
+    except subprocess.CalledProcessError as e:
+        logger.warning("Error detaching subscription between attach retries: %s", str(e))
+
+
+@retry(ProcessExecutionError, compensating_action=attach_subscription_retry_compensating_action)
 def attach_subscription(token, env, services=None):
     """Attach an ubuntu-advantage subscription using the specified token and services."""
     with create_attach_config(token, services) as attach_config_path:
