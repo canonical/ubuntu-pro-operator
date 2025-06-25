@@ -155,25 +155,30 @@ def create_attach_config(token, services=None):
 
 
 @retry(ProcessExecutionError)
-def attach_subscription(token, env, services=None):
+def attach(token, env, services=None):
     """Attach to an Ubuntu Pro subscription.
 
     Ensures the system is attached to Ubuntu Pro using the specified token
     and with the specified services enabled, detaching first in case the
     system is already attached.
     """
+    logger.info("Attaching Ubuntu Pro subscription")
+
     try:
+        logger.info("Checking if already attached")
         status = get_status_output(env)
     except ProcessExecutionError as e:
         logger.warning("Error getting status before attempting to attach: %s", str(e))
         # in this case, we will try to detach just in case, so set status to attached
         status = {"attached": True}
     if status["attached"]:
+        logger.info("Already attached. Detaching from current subscription")
         try:
             detach_subscription(env)
         except subprocess.CalledProcessError as e:
             logger.warning("Error detaching subscription before attaching: %s", str(e))
 
+    logger.info("Attaching to new subscription with services: %r", services)
     with create_attach_config(token, services) as attach_config_path:
         result = subprocess.run(
             ["ubuntu-advantage", "attach", "--attach-config", attach_config_path],
@@ -394,10 +399,9 @@ class UbuntuAdvantageCharm(CharmBase):
             self.unit.status = BlockedStatus("No token configured")
             return
         elif config_changed or token_changed:
-            logger.info("Attaching ubuntu-advantage subscription")
             try:
                 enable_services = parse_services(self.config.get("services", "").strip())
-                attach_subscription(token, self.ssl_env, services=enable_services)
+                attach(token, self.ssl_env, services=enable_services)
             except ProcessExecutionError as e:
                 self.unit.status = BlockedStatus(str(e))
                 return
