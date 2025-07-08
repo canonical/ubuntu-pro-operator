@@ -4,6 +4,8 @@ This operator/charm enables Ubuntu Pro (https://ubuntu.com/pro) subscriptions.
 
 It is published under two names: `ubuntu-pro` and `ubuntu-advantage`. The `ubuntu-advantage` name is kept to avoid breaking existing deployments of this charm.
 
+The `ubuntu-advantage` charm has been officially deprecated and will not recieve any updates. All new features and updates will be made to the `ubuntu-pro-operator`.
+
 This charm is maintained by the Ubuntu Pro team within Commercial Systems at Canonical.
 
 ## Usage
@@ -19,10 +21,9 @@ juju add-relation ubuntu ubuntu-advantage
 
 ## Development
 
-This charm is developed at https://code.launchpad.net/charm-ubuntu-advantage.
+This charm is developed at https://github.com/canonical/ubuntu-pro-operator.
 
-It is released to the `edge` channel via a recipe:
-https://launchpad.net/~ubuntu-advantage-charmers/charm-ubuntu-advantage/+charm/ubuntu-advantage.
+It is currently released to the `edge` channel manually.
 
 It is published at https://charmhub.io/ubuntu-advantage, and at https://charmhub.io/ubuntu-pro but it is
 not publicly findable via search in charmhub.
