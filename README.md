@@ -23,7 +23,7 @@ juju add-relation ubuntu ubuntu-advantage
 
 This charm is developed at https://github.com/canonical/ubuntu-pro-operator.
 
-It is released to the `edge` channel via CI when a PR is merged to the main channel.
+It is currently released to the `edge` channel manually.
 
 It is published at https://charmhub.io/ubuntu-advantage, and at https://charmhub.io/ubuntu-pro but it is
 not publicly findable via search in charmhub.
