@@ -1,0 +1,21 @@
+name: Run Tests
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install tox
+        run: sudo apt-get update && sudo apt-get install -y tox
+      
+      - name: Run linting
+        run: tox run -e lint
+      
+      - name: Run unit tests
+        run: tox run -e unit
