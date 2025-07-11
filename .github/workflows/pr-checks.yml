@@ -55,6 +55,19 @@ jobs:
       - name: Build charm(s)
         run: make ${{ matrix.build-target }}
 
+      - name: Verify built charm exists
+        run: |
+          echo "Verifying built charm for ${{ matrix.build-target }}"
+          if [ ! -f "${{ matrix.build-target }}.charm" ]; then
+            echo "::error::Charm file not found: ${{ matrix.build-target }}.charm"
+            echo "Current directory: $(pwd)"
+            echo "Directory contents:"
+            ls -la
+            exit 1
+          fi
+          echo "✓ Found: ${{ matrix.build-target }}.charm"
+          ls -la "${{ matrix.build-target }}.charm"
+
       - name: Upload built charm(s)
         uses: actions/upload-artifact@v4
         with:
