@@ -38,6 +38,8 @@ jobs:
     strategy:
       matrix:
         build-target: [ubuntu-advantage, ubuntu-advantage_noble, ubuntu-pro, ubuntu-pro_noble]
+    outputs:
+      artifact-prefix: ${{ steps.set-outputs.outputs.artifact-prefix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,5 +52,27 @@ jobs:
       - name: Install charmcraft
         run: sudo snap install charmcraft --classic
       
-      - name: Build charm
+      - name: Build charm(s)
         run: make ${{ matrix.build-target }}
+
+      - name: Verify charm(s)
+        run: |
+          if [ ! -f "${{ matrix.build-target }}.charm" ]; then
+            echo "::error::Charm file not found: ${{ matrix.build-target }}.charm"
+            ls -la
+            exit 1
+          fi
+
+      - name: Upload built charm(s)
+        uses: actions/upload-artifact@v4
+        with:
+          name: charm-${{ matrix.build-target }}
+          path: ${{matrix.build-target}}.charm
+      
+      - name: Set outputs
+        id: set-outputs
+        run: |
+          echo "artifact-prefix=charm-" >> $GITHUB_OUTPUT
+
+
+
