@@ -38,8 +38,6 @@ jobs:
     strategy:
       matrix:
         build-target: [ubuntu-advantage, ubuntu-advantage_noble, ubuntu-pro, ubuntu-pro_noble]
-    outputs:
-      artifact-prefix: ${{ steps.set-outputs.outputs.artifact-prefix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,23 +56,20 @@ jobs:
       - name: Verify built charm exists
         run: |
           echo "Verifying built charm for ${{ matrix.build-target }}"
-          if [ ! -f "${{ matrix.build-target }}.charm" ]; then
-            echo "::error::Charm file not found: ${{ matrix.build-target }}.charm"
+          CHARM_FILE=$(ls ${{ matrix.build-target }}_*.charm 2>/dev/null || true)
+          if [ -z "$CHARM_FILE" ] || [ ! -f "$CHARM_FILE" ]; then
+            echo "::error::Charm file not found for: ${{ matrix.build-target }}"
             echo "Current directory: $(pwd)"
             echo "Directory contents:"
             ls -la
             exit 1
           fi
-          echo "✓ Found: ${{ matrix.build-target }}.charm"
-          ls -la "${{ matrix.build-target }}.charm"
+          echo "✓ Found: $CHARM_FILE"
+          ls -la "$CHARM_FILE"
+          echo "CHARM_FILE=$CHARM_FILE" >> $GITHUB_ENV
 
       - name: Upload built charm(s)
         uses: actions/upload-artifact@v4
         with:
           name: charm-${{ matrix.build-target }}
-          path: ${{matrix.build-target}}.charm
-      
-      - name: Set outputs
-        id: set-outputs
-        run: |
-          echo "artifact-prefix=charm-" >> $GITHUB_OUTPUT
+          path: ${{ env.CHARM_FILE }}
