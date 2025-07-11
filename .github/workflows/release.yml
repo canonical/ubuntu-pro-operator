@@ -6,9 +6,13 @@ on:
       - main
 
 jobs:
+  test:
+    uses: ./.github/workflows/ci-tests.yml
+
   release:
     name: Build and Release Charms
     runs-on: ubuntu-latest
+    needs: [test]
     strategy:
       matrix:
         charm: 

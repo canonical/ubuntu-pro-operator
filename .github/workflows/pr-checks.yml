@@ -5,36 +5,13 @@ on:
     branches: [ main ]
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    name: Linting
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Install tox
-        run: sudo apt-get update && sudo apt-get install -y tox
-      
-      - name: Run linting
-        run: tox run -e lint
-
-  unit-tests:
-    runs-on: ubuntu-latest
-    name: Unit Tests
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Install tox
-        run: sudo apt-get update && sudo apt-get install -y tox
-      
-      - name: Run unit tests
-        run: tox run -e unit
+  test:
+    uses: ./.github/workflows/ci-tests.yml
 
   build:
     runs-on: ubuntu-latest
     name: Build Charms
-    needs: [lint, unit-tests]
+    needs: [test]
     strategy:
       matrix:
         build-target: [ubuntu-advantage, ubuntu-advantage_noble, ubuntu-pro, ubuntu-pro_noble]
