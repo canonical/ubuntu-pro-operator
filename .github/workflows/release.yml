@@ -37,13 +37,10 @@ jobs:
       - name: Build ${{ matrix.charm.name }}
         run: make ${{ matrix.charm.target }}
 
-      - name: Release to Charmhub
-        uses: canonical/data-platform-workflows/.github/workflows/release_charm_edge.yaml@v32.1.0
+      - name: Build charm and upload charm and image resource to Charmhub
+        uses: canonical/charming-actions/upload-charm@2.4.0
         with:
-          track: ${{ matrix.charm.track }}
-          artifact-prefix: ""
-          path-to-charm-directory: .
-        secrets:
-          charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}
-        permissions:
-          contents: write
+          credentials: "${{ secrets.CHARMHUB_TOKEN }}"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          pull-image: "false"
+          channel: ${{ matrix.charm.track }}
