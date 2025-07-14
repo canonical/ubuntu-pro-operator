@@ -14,7 +14,7 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        build-target: [ubuntu-advantage, ubuntu-advantage_noble, ubuntu-pro, ubuntu-pro_noble]
+        build-target: [ubuntu-pro, ubuntu-pro_noble]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

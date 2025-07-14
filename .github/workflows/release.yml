@@ -16,12 +16,6 @@ jobs:
     strategy:
       matrix:
         charm: 
-          - name: ubuntu-advantage
-            target: ubuntu-advantage
-            track: latest/edge
-          - name: ubuntu-advantage_noble
-            target: ubuntu-advantage_noble
-            track: latest/edge
           - name: ubuntu-pro
             target: ubuntu-pro
             track: latest/edge

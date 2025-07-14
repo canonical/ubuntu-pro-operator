@@ -34,8 +34,6 @@ Then you can run the integration tests with `tox run -e integration`.
 After all 4 charms have been tested and built, you can upload them and release them to the edge channel of their respective charm names. It should look something like this:
 
 ```
-charmcraft upload ./ubuntu-advantage_ubuntu-16.04-amd64_ubuntu-18.04-amd64_ubuntu-20.04-amd64_ubuntu-22.04-amd64.charm --release edge
-charmcraft upload ./ubuntu-advantage_amd64.charm --release edge
 charmcraft upload ./ubuntu-pro_ubuntu-16.04-amd64_ubuntu-18.04-amd64_ubuntu-20.04-amd64_ubuntu-22.04-amd64.charm --release edge
 charmcraft upload ./ubuntu-pro_amd64.charm --release edge
 ```
