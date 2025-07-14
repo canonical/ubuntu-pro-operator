@@ -1,4 +1,4 @@
-name: Release Charms to Edge
+name: Release ubuntu-pro-operator to Edge
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     uses: ./.github/workflows/ci-tests.yml
 
   release:
-    name: Build and Release Charms
+    name: Build and Release ubuntu-pro-operator
     runs-on: ubuntu-latest
     needs: [test]
     strategy:
