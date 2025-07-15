@@ -2,7 +2,7 @@ CLEANUP_FILES = charmcraft.yaml
 
 .PHONY: all ubuntu-pro ubuntu-pro_noble legacy clean
 
-all: ubuntu-pro ubuntu-pro_noble legacy
+all: ubuntu-pro ubuntu-pro_noble
 
 ubuntu-pro:
 	cp charms/ubuntu-pro/* .
