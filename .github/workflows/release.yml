@@ -1,4 +1,4 @@
-name: Release ubuntu-pro-operator to Edge
+name: Release ubuntu-pro-operator to latest/edge
 
 on:
   push:
@@ -44,3 +44,4 @@ jobs:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           pull-image: "false"
           channel: ${{ matrix.charm.track }}
+

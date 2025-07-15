@@ -27,5 +27,5 @@ jobs:
       - name: Install charmcraft
         run: sudo snap install charmcraft --classic
       
-      - name: Build charm(s)
+      - name: Build charms
         run: make ${{ matrix.build-target }}
