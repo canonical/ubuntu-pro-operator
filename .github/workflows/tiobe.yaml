@@ -1,12 +1,13 @@
 name: TICS scan
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: "0 12 * * 3" # wednesday at 12:00
+    - cron: "0 3 * * *"
 
 jobs:
   tiobe:
-    runs-on: ubuntu-24.04
+    runs-on: runs-on: [self-hosted, linux, x64, "${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tiobe == true)) && 'large-tiobe' || 'large' }}"]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -28,12 +29,13 @@ jobs:
           mv coverage.xml .cover/cobertura.xml
 
       - name: TICS GitHub Action
+        if: ${{ (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch') }}
         uses: tiobe/tics-github-action@v3
         with:
           mode: qserver
           project: ubuntu-pro-operator
           viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=default
-          branchdir: ${{ env.GITHUB_WORKSPACE }}
+          branchdir: ${{ github.workspace }}
           ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}
           installTics: true
-          calc: ALL
+
