@@ -1,4 +1,4 @@
-name: Tiobe
+name: TIOBE scan
 
 on:
   workflow_dispatch:
