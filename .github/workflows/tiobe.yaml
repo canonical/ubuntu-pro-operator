@@ -7,7 +7,7 @@ on:
 
 jobs:
   tiobe:
-    runs-on: runs-on: [self-hosted, linux, x64, "${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tiobe == true)) && 'large-tiobe' || 'large' }}"]
+    runs-on: runs-on: [self-hosted, linux, x64, "${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch')) && 'large-tiobe' || 'large' }}"]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
