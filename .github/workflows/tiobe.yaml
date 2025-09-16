@@ -1,0 +1,41 @@
+name: TIOBE scan
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  tiobe:
+    runs-on: runs-on: [self-hosted, linux, x64, "${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch')) && 'large-tiobe' || 'large' }}"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Create and activate virtual environment
+        run: |
+          python3 -m venv tiobe_venv
+          source tiobe_venv/bin/activate
+          pip install flake8 pylint pytest tox
+          echo PATH="$PATH" >> "$GITHUB_ENV"
+
+      - name: Run coverage tests
+        run: |
+          tox -e unit
+
+      - name: Move results to the necessary folder for TICS
+        run: |
+          mkdir -p .cover
+          mv coverage.xml .cover/cobertura.xml
+
+      - name: TICS GitHub Action
+        if: ${{ (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch') }}
+        uses: tiobe/tics-github-action@v3
+        with:
+          mode: qserver
+          project: ubuntu-pro-operator
+          viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=default
+          branchdir: ${{ github.workspace }}
+          ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}
+          installTics: true
+
