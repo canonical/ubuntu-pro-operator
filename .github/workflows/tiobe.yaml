@@ -12,6 +12,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Install dependencies
+        run: |
+          sudo apt install -y build-essential python3-dev python3-venv
+
       - name: Create and activate virtual environment
         run: |
           python3 -m venv tiobe_venv
