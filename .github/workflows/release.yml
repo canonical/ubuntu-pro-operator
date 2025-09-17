@@ -37,6 +37,10 @@ jobs:
       - name: Build ${{ matrix.charm.name }}
         run: make ${{ matrix.charm.target }}
 
+      - name: Copy charm files to root
+        run: |
+          cp -r ./charms/${{ matrix.charm.target }}/* .
+
       - name: Build charm and upload charm and image resource to Charmhub
         uses: canonical/charming-actions/upload-charm@2.4.0
         with:
