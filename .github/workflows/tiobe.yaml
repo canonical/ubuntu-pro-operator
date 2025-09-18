@@ -29,8 +29,8 @@ jobs:
 
       - name: Move results to the necessary folder for TICS
         run: |
-          mkdir -p .cover
-          mv coverage.xml .cover/cobertura.xml
+          mkdir -p coverage
+          mv coverage.xml coverage/coverage.xml
 
       - name: TICS GitHub Action
         if: ${{ (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch') }}
