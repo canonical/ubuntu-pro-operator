@@ -15,7 +15,7 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        charm: 
+        charm:
           - name: ubuntu-pro
             target: ubuntu-pro
             track: latest/edge
@@ -48,4 +48,4 @@ jobs:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           pull-image: "false"
           channel: ${{ matrix.charm.track }}
-
+          destructive-mode: "false"
