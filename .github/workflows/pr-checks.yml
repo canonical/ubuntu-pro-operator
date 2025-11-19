@@ -25,7 +25,7 @@ jobs:
           channel: latest/stable
 
       - name: Install charmcraft
-        run: sudo snap install charmcraft --classic --channel=2.x/stable
+        run: sudo snap install charmcraft --classic --channel=3.x/stable
 
       - name: Build charms
         run: make ${{ matrix.build-target }}
