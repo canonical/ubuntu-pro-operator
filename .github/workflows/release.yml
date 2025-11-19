@@ -44,7 +44,7 @@ jobs:
           cp -r ./charms/${{ matrix.charm.target }}/* .
 
       - name: Build charm and upload charm and image resource to Charmhub
-        uses: canonical/charming-actions/upload-charm@2.4.0
+        uses: canonical/charming-actions/upload-charm@2.7.0
         with:
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
