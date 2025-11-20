@@ -1,6 +1,7 @@
 name: Release ubuntu-pro-operator to latest/edge
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -15,7 +16,7 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        charm: 
+        charm:
           - name: ubuntu-pro
             target: ubuntu-pro
             track: latest/edge
@@ -32,7 +33,7 @@ jobs:
           channel: latest/stable
 
       - name: Install charmcraft
-        run: sudo snap install charmcraft --classic
+        run: sudo snap install charmcraft --classic --channel=3.x/stable
 
       - name: Build ${{ matrix.charm.name }}
         run: make ${{ matrix.charm.target }}
@@ -42,10 +43,10 @@ jobs:
           cp -r ./charms/${{ matrix.charm.target }}/* .
 
       - name: Build charm and upload charm and image resource to Charmhub
-        uses: canonical/charming-actions/upload-charm@2.4.0
+        uses: canonical/charming-actions/upload-charm@2.7.0
         with:
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           pull-image: "false"
           channel: ${{ matrix.charm.track }}
-
+          destructive-mode: "false"
