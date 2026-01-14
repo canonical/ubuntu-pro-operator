@@ -99,6 +99,12 @@ def enable_livepatch_server(token):
         )
 
 
+def set_security_url(security_url: str):
+    """Set the security_url."""
+    logger.info(f"Setting security URL to {security_url}")
+    subprocess.check_call(["pro", "config", "set", security_url])
+
+
 def install_livepatch():
     """Install the canonical-livepatch package."""
     logger.info("Installing package canonical-livepatch")
@@ -255,6 +261,7 @@ class UbuntuAdvantageCharm(CharmBase):
             ppa=None,
             livepatch_installed=False,
             hashed_livepatch_token=None,
+            security_url=None,
         )
 
         self.framework.observe(self.on.config_changed, self.config_changed)
@@ -297,6 +304,7 @@ class UbuntuAdvantageCharm(CharmBase):
         self._handle_ppa_state()
         self._handle_package_state()
         self._configure_livepatch()
+        self._configure_security_url()
         if isinstance(self.unit.status, BlockedStatus):
             return
         self._handle_subscription_state()
@@ -365,6 +373,15 @@ class UbuntuAdvantageCharm(CharmBase):
         except ProcessExecutionError as e:
             logger.error("Failed to configure livepatch: %s", str(e))
             self.unit.status = BlockedStatus(str(e))
+
+    def _configure_security_url(self):
+        """Configure the URL to use for USN updates."""
+        security_url = self.config.get("security_url").strip()
+        old_security_url = self._state.security_url
+        config_changed = old_security_url != security_url
+        if config_changed:
+            set_security_url(security_url)
+            self._state.security_url = security_url
 
     def _handle_subscription_state(self):
         """Handle uaclient configuration and subscription attachment."""

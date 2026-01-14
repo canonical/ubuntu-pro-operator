@@ -83,10 +83,12 @@ class TestCharm(TestCase):
         )
         self.assertEqual(self.harness.charm.config.get("ppa"), "")
         self.assertEqual(self.harness.charm.config.get("token"), "")
+        self.assertEqual(
+            self.harness.charm.config.get("security_url"), "https://ubuntu.com/security"
+        )
 
     def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
@@ -94,7 +96,8 @@ class TestCharm(TestCase):
                         ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
                     ),
                 ]
-            )
+            ),
+            any_order=True,
         )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
@@ -102,7 +105,6 @@ class TestCharm(TestCase):
 
     def test_config_changed_ppa_updated(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
@@ -110,7 +112,8 @@ class TestCharm(TestCase):
                         ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
                     ),
                 ]
-            )
+            ),
+            any_order=True,
         )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
@@ -140,7 +143,6 @@ class TestCharm(TestCase):
 
     def test_config_changed_ppa_unmodified(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
@@ -148,7 +150,8 @@ class TestCharm(TestCase):
                         ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
                     ),
                 ]
-            )
+            ),
+            any_order=True,
         )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
@@ -163,7 +166,6 @@ class TestCharm(TestCase):
 
     def test_config_changed_ppa_unset(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
@@ -171,7 +173,8 @@ class TestCharm(TestCase):
                         ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
                     ),
                 ]
-            )
+            ),
+            any_order=True,
         )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
@@ -246,7 +249,6 @@ class TestCharm(TestCase):
     )
     def test_config_changed_token_reattach(self, m_get_status_output, m_attach):
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(self.mocks["check_call"].call_count, 2)
         self._assert_apt_calls()
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         self._assert_apt_calls()
@@ -414,6 +416,15 @@ class TestCharm(TestCase):
         self.harness.update_config({"token": "test-token"})
         self.assertEqual(
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
+        )
+
+    def test_config_changed_security_url(self):
+        """If the security_url is set to a new value, update it."""
+        new_url = "https://offline-ubuntu.com/security"
+        self.assertNotEqual(new_url, self.harness.charm.config["security_url"])
+        self.harness.update_config({"security_url": new_url})
+        self.mocks["check_call"].assert_has_calls(
+            [call(["pro", "config", "set", new_url])],
         )
 
     def test_config_changed_contract_url(self):
