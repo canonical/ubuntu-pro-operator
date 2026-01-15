@@ -178,3 +178,13 @@ async def test_detach_subscription(ops_test: OpsTest):
 
     unit = charm.units[0]
     assert unit.workload_status == BlockedStatus.name
+
+
+async def test_set_security_url(ops_test: OpsTest):
+    charm = ops_test.model.applications[CHARM_NAME]
+    await charm.set_config({"security_url": "https://offline.ubuntu.com/security"})
+
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == ActiveStatus.name
