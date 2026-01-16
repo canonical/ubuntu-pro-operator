@@ -742,13 +742,89 @@ class TestCharm(TestCase):
 
 
 @pytest.fixture
+def harness():
+    """Glue code.
+
+    This is helpful to slowly integrate pytest fixtures and `Context` while
+    accommodating existing tests that use unittest.TestCase and `harness`.
+    """
+    harness = Harness(UbuntuAdvantageCharm)
+    harness.begin()
+
+    yield harness
+
+    harness.cleanup()
+
+
+@pytest.fixture
+def mocks():
+    """Glue code.
+
+    This is helpful to slowly integrate pytest fixtures and `Context` while
+    accommodating existing tests that use unittest.TestCase and `harness`. This
+    fixture is generally required to avoid errors that derive from calling
+    commands that need a "real" environment like subprocess calls.
+    """
+    mocks = {
+        "call": patch("subprocess.call").start(),
+        "check_call": patch("subprocess.check_call").start(),
+        "run": patch("subprocess.run").start(),
+        "apt": patch("charm.apt").start(),
+        "status_output": patch("charm.get_status_output").start(),
+        "install_livepatch": patch("charm.install_livepatch").start(),
+        "disable_livepatch": patch("charm.disable_canonical_livepatch").start(),
+    }
+
+    yield mocks
+
+    patch.stopall()
+
+
+class TestOnConfigChanged:
+    """pytest-based tests for the `on.config_changed` hook.
+
+    Eventually these should use `Context` instead of harness as well.
+    """
+
+    def test_file_based_configs(self, harness, mocks, mock_uaclient_config):
+        """Juju configs that set options in the Ubuntu Pro config file are correct."""
+        with open(mock_uaclient_config) as f:
+            actual_existing = yaml.safe_load(f)
+
+        expected_existing = {
+            "data_dir": "/var/lib/ubuntu-advantage",
+            "log_level": "debug",
+            "log_file": "/var/log/ubuntu-advantage.log",
+            "contract_url": "https://contracts.canonical.com",
+        }
+
+        assert expected_existing == actual_existing
+
+        harness.update_config(
+            {
+                "contract_url": "https://offline.contracts.canonical.com",
+                "security_url": "https://offline.ubuntu.com/security",
+            }
+        )
+
+        expected = {
+            "contract_url": "https://offline.contracts.canonical.com",
+            "data_dir": "/var/lib/ubuntu-advantage",
+            "log_level": "debug",
+            "log_file": "/var/log/ubuntu-advantage.log",
+            "security_url": "https://offline.ubuntu.com/security",
+        }
+
+        with open(mock_uaclient_config) as f:
+            actual = yaml.safe_load(f)
+
+        assert expected == actual
+
+
+@pytest.fixture
 def mock_uaclient_config():
     """Mock the uaclient.conf file for testing update_configuration."""
-    initial_config = {
-        "contract_url": "https://contracts.canonical.com",
-        "data_dir": "/var/lib/ubuntu-advantage",
-        "log_level": "debug",
-    }
+    initial_config = yaml.safe_load(DEFAULT_CLIENT_CONFIG)
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
         yaml.dump(initial_config, f)
