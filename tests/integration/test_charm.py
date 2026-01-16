@@ -182,7 +182,12 @@ async def test_detach_subscription(ops_test: OpsTest):
 
 async def test_set_security_url(ops_test: OpsTest):
     charm = ops_test.model.applications[CHARM_NAME]
-    await charm.set_config({"security_url": "https://offline.ubuntu.com/security"})
+    await charm.set_config(
+        {
+            "security_url": "https://offline.ubuntu.com/security",
+            "token": TEST_TOKEN,
+        }
+    )
 
     await ops_test.model.wait_for_idle()
 
