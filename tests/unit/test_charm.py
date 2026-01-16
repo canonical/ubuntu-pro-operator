@@ -10,7 +10,7 @@ from unittest.mock import ANY, MagicMock, call, mock_open, patch
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
 
-from charm import UbuntuAdvantageCharm
+from charm import UbuntuAdvantageCharm, update_configuration
 from exceptions import ProcessExecutionError
 
 STATUS_ATTACHED = json.dumps(
@@ -751,3 +751,127 @@ class TestCharm(TestCase):
         self.mocks["apt"].add_package.assert_called_once_with(
             "ubuntu-advantage-tools", update_cache=True
         )
+
+
+class TestUpdateConfiguration(TestCase):
+    """Test the update_configuration helper function."""
+
+    def test_update_configuration_single_value(self):
+        """Test updating a single configuration value."""
+        mock_file_content = dedent(
+            """\
+            contract_url: 'https://contracts.canonical.com'
+            data_dir: /var/lib/ubuntu-advantage
+            log_level: debug
+            """
+        )
+        m_open = mock_open(read_data=mock_file_content)
+        
+        with patch("builtins.open", m_open):
+            update_configuration({"contract_url": "https://contracts.staging.canonical.com"})
+        
+        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
+        handle = m_open()
+        handle.seek.assert_called_once_with(0)
+        handle.truncate.assert_called_once()
+        
+        written = _written(handle)
+        assert "contract_url: https://contracts.staging.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_level: debug" in written
+
+    def test_update_configuration_multiple_values(self):
+        """Test updating multiple configuration values at once."""
+        mock_file_content = dedent(
+            """\
+            contract_url: 'https://contracts.canonical.com'
+            data_dir: /var/lib/ubuntu-advantage
+            log_level: debug
+            """
+        )
+        m_open = mock_open(read_data=mock_file_content)
+        
+        with patch("builtins.open", m_open):
+            update_configuration({
+                "contract_url": "https://contracts.staging.canonical.com",
+                "security_url": "https://offline.ubuntu.com/security",
+            })
+        
+        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
+        handle = m_open()
+        handle.seek.assert_called_once_with(0)
+        handle.truncate.assert_called_once()
+        
+        written = _written(handle)
+        assert "contract_url: https://contracts.staging.canonical.com" in written
+        assert "security_url: https://offline.ubuntu.com/security" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_level: debug" in written
+
+    def test_update_configuration_adds_new_key(self):
+        """Test that new keys are added to the configuration."""
+        mock_file_content = dedent(
+            """\
+            contract_url: 'https://contracts.canonical.com'
+            data_dir: /var/lib/ubuntu-advantage
+            """
+        )
+        m_open = mock_open(read_data=mock_file_content)
+        
+        with patch("builtins.open", m_open):
+            update_configuration({"new_key": "new_value"})
+        
+        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
+        handle = m_open()
+        handle.seek.assert_called_once_with(0)
+        handle.truncate.assert_called_once()
+        
+        written = _written(handle)
+        assert "new_key: new_value" in written
+        assert "contract_url: https://contracts.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+
+    def test_update_configuration_overwrites_existing_key(self):
+        """Test that existing keys are properly overwritten."""
+        mock_file_content = dedent(
+            """\
+            contract_url: 'https://contracts.canonical.com'
+            security_url: 'https://esm.ubuntu.com'
+            data_dir: /var/lib/ubuntu-advantage
+            """
+        )
+        m_open = mock_open(read_data=mock_file_content)
+        
+        with patch("builtins.open", m_open):
+            update_configuration({"security_url": "https://offline.ubuntu.com/security"})
+        
+        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
+        handle = m_open()
+        
+        written = _written(handle)
+        assert "security_url: https://offline.ubuntu.com/security" in written
+        # Should not contain the old value
+        assert "https://esm.ubuntu.com" not in written
+
+    def test_update_configuration_empty_dict(self):
+        """Test that passing an empty dict doesn't break anything."""
+        mock_file_content = dedent(
+            """\
+            contract_url: 'https://contracts.canonical.com'
+            data_dir: /var/lib/ubuntu-advantage
+            """
+        )
+        m_open = mock_open(read_data=mock_file_content)
+        
+        with patch("builtins.open", m_open):
+            update_configuration({})
+        
+        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
+        handle = m_open()
+        handle.seek.assert_called_once_with(0)
+        handle.truncate.assert_called_once()
+        
+        written = _written(handle)
+        # Original values should still be present
+        assert "contract_url: https://contracts.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
