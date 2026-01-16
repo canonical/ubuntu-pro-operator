@@ -106,12 +106,6 @@ def enable_livepatch_server(token):
         )
 
 
-def set_security_url(security_url: str):
-    """Set the security_url."""
-    logger.info(f"Setting security URL to {security_url}")
-    subprocess.check_call(["pro", "config", "set", security_url])
-
-
 def install_livepatch():
     """Install the canonical-livepatch package."""
     logger.info("Installing package canonical-livepatch")
@@ -387,7 +381,7 @@ class UbuntuAdvantageCharm(CharmBase):
         old_security_url = self._state.security_url
         config_changed = old_security_url != security_url
         if config_changed:
-            set_security_url(security_url)
+            update_configuration({"security_url": security_url})
             self._state.security_url = security_url
 
     def _handle_subscription_state(self):

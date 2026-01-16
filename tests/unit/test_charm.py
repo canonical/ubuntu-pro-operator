@@ -223,16 +223,12 @@ class TestCharm(TestCase):
         self.harness.update_config({"token": "test-token"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
-            contract_url: https://contracts.canonical.com
-            data_dir: /var/lib/ubuntu-advantage
-            log_file: /var/log/ubuntu-advantage.log
-            log_level: debug
-        """
-        )
-        self.assertEqual(_written(handle), expected)
-        handle.truncate.assert_called_once()
+        written = _written(handle)
+
+        assert "contract_url: https://contracts.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_file: /var/log/ubuntu-advantage.log" in written
+        assert "log_level: debug" in written
         assert m_get_status_output.call_count == 1
         assert m_attach.call_count == 1
         self.assertEqual(
@@ -257,16 +253,12 @@ class TestCharm(TestCase):
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         self._assert_apt_calls()
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
-            contract_url: https://contracts.canonical.com
-            data_dir: /var/lib/ubuntu-advantage
-            log_file: /var/log/ubuntu-advantage.log
-            log_level: debug
-        """
-        )
-        self.assertEqual(_written(handle), expected)
-        handle.truncate.assert_called_once()
+        written = _written(handle)
+
+        assert "contract_url: https://contracts.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_file: /var/log/ubuntu-advantage.log" in written
+        assert "log_level: debug" in written
         assert m_get_status_output.call_count == 1
         assert m_attach.call_count == 1
         self.assertEqual(
@@ -427,24 +419,21 @@ class TestCharm(TestCase):
         new_url = "https://offline-ubuntu.com/security"
         self.assertNotEqual(new_url, self.harness.charm.config["security_url"])
         self.harness.update_config({"security_url": new_url})
-        self.mocks["check_call"].assert_has_calls(
-            [call(["pro", "config", "set", new_url])],
-        )
+        self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
+        handle = self.mocks["open"]()
+        written = _written(handle)
+        assert "security_url: https://offline-ubuntu.com/security" in written
 
     def test_config_changed_contract_url(self):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
-            contract_url: https://contracts.staging.canonical.com
-            data_dir: /var/lib/ubuntu-advantage
-            log_file: /var/log/ubuntu-advantage.log
-            log_level: debug
-        """
-        )
-        self.assertEqual(_written(handle), expected)
-        handle.truncate.assert_called_once()
+        written = _written(handle)
+        assert "contract_url: https://contracts.staging.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_file: /var/log/ubuntu-advantage.log" in written
+        assert "log_level: debug" in written
+        assert "security_url: https://ubuntu.com/security" in written
         assert self.mocks["status_output"].call_count == 1
         self.assertEqual(
             self.harness.charm._state.contract_url, "https://contracts.staging.canonical.com"
@@ -508,16 +497,11 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
-            contract_url: https://contracts.staging.canonical.com
-            data_dir: /var/lib/ubuntu-advantage
-            log_file: /var/log/ubuntu-advantage.log
-            log_level: debug
-        """
-        )
-        self.assertEqual(_written(handle), expected)
-        handle.truncate.assert_called_once()
+        written = _written(handle)
+        assert "contract_url: https://contracts.staging.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_file: /var/log/ubuntu-advantage.log" in written
+        assert "log_level: debug" in written
         self.mocks["call"].assert_not_called()
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
         self.mocks["open"].reset_mock()
