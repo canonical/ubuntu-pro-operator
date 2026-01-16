@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LIVEPATCH_SERVER = "https://livepatch.canonical.com"
 
+PRO_CONFIG_FILE = "/etc/ubuntu-advantage/uaclient.conf"
+
 
 def install_ppa(ppa, env):
     """Install specified ppa."""
@@ -39,11 +41,11 @@ def remove_ppa(ppa, env):
 
 def update_configuration(config_updates):
     """Write configuration values to the uaclient configuration file.
-    
+
     Args:
         config_updates: Dictionary of key-value pairs to update in the config file.
     """
-    with open("/etc/ubuntu-advantage/uaclient.conf", "r+") as f:
+    with open(PRO_CONFIG_FILE, "r+") as f:
         client_config = yaml.safe_load(f)
         for key, value in config_updates.items():
             client_config[key] = value

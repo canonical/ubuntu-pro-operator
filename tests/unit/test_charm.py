@@ -2,11 +2,15 @@
 # See LICENSE file for licensing details.
 
 import json
+import tempfile
+from pathlib import Path
 from subprocess import PIPE, CalledProcessError
 from textwrap import dedent
 from unittest import TestCase
 from unittest.mock import ANY, MagicMock, call, mock_open, patch
 
+import pytest
+import yaml
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
 
@@ -753,125 +757,94 @@ class TestCharm(TestCase):
         )
 
 
-class TestUpdateConfiguration(TestCase):
+@pytest.fixture
+def mock_uaclient_config():
+    """Mock the uaclient.conf file for testing update_configuration."""
+    initial_config = {
+        "contract_url": "https://contracts.canonical.com",
+        "data_dir": "/var/lib/ubuntu-advantage",
+        "log_level": "debug",
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
+        yaml.dump(initial_config, f)
+        temp_path = f.name
+
+    with patch("charm.open", lambda path, mode: open(temp_path, mode)):
+        yield temp_path
+
+    Path(temp_path).unlink(missing_ok=True)
+
+
+class TestUpdateConfiguration:
     """Test the update_configuration helper function."""
 
-    def test_update_configuration_single_value(self):
+    def test_update_configuration_single_value(self, mock_uaclient_config):
         """Test updating a single configuration value."""
-        mock_file_content = dedent(
-            """\
-            contract_url: 'https://contracts.canonical.com'
-            data_dir: /var/lib/ubuntu-advantage
-            log_level: debug
-            """
-        )
-        m_open = mock_open(read_data=mock_file_content)
-        
-        with patch("builtins.open", m_open):
-            update_configuration({"contract_url": "https://contracts.staging.canonical.com"})
-        
-        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
-        handle = m_open()
-        handle.seek.assert_called_once_with(0)
-        handle.truncate.assert_called_once()
-        
-        written = _written(handle)
-        assert "contract_url: https://contracts.staging.canonical.com" in written
-        assert "data_dir: /var/lib/ubuntu-advantage" in written
-        assert "log_level: debug" in written
+        update_configuration({"contract_url": "https://contracts.staging.canonical.com"})
 
-    def test_update_configuration_multiple_values(self):
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["contract_url"] == "https://contracts.staging.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+        assert config["log_level"] == "debug"
+
+    def test_update_configuration_multiple_values(self, mock_uaclient_config):
         """Test updating multiple configuration values at once."""
-        mock_file_content = dedent(
-            """\
-            contract_url: 'https://contracts.canonical.com'
-            data_dir: /var/lib/ubuntu-advantage
-            log_level: debug
-            """
-        )
-        m_open = mock_open(read_data=mock_file_content)
-        
-        with patch("builtins.open", m_open):
-            update_configuration({
+        update_configuration(
+            {
                 "contract_url": "https://contracts.staging.canonical.com",
                 "security_url": "https://offline.ubuntu.com/security",
-            })
-        
-        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
-        handle = m_open()
-        handle.seek.assert_called_once_with(0)
-        handle.truncate.assert_called_once()
-        
-        written = _written(handle)
-        assert "contract_url: https://contracts.staging.canonical.com" in written
-        assert "security_url: https://offline.ubuntu.com/security" in written
-        assert "data_dir: /var/lib/ubuntu-advantage" in written
-        assert "log_level: debug" in written
+            }
+        )
 
-    def test_update_configuration_adds_new_key(self):
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["contract_url"] == "https://contracts.staging.canonical.com"
+        assert config["security_url"] == "https://offline.ubuntu.com/security"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+        assert config["log_level"] == "debug"
+
+    def test_update_configuration_adds_new_key(self, mock_uaclient_config):
         """Test that new keys are added to the configuration."""
-        mock_file_content = dedent(
-            """\
-            contract_url: 'https://contracts.canonical.com'
-            data_dir: /var/lib/ubuntu-advantage
-            """
-        )
-        m_open = mock_open(read_data=mock_file_content)
-        
-        with patch("builtins.open", m_open):
-            update_configuration({"new_key": "new_value"})
-        
-        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
-        handle = m_open()
-        handle.seek.assert_called_once_with(0)
-        handle.truncate.assert_called_once()
-        
-        written = _written(handle)
-        assert "new_key: new_value" in written
-        assert "contract_url: https://contracts.canonical.com" in written
-        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        update_configuration({"new_key": "new_value"})
 
-    def test_update_configuration_overwrites_existing_key(self):
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["new_key"] == "new_value"
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+
+    def test_update_configuration_overwrites_existing_key(self, mock_uaclient_config):
         """Test that existing keys are properly overwritten."""
-        mock_file_content = dedent(
-            """\
-            contract_url: 'https://contracts.canonical.com'
-            security_url: 'https://esm.ubuntu.com'
-            data_dir: /var/lib/ubuntu-advantage
-            """
-        )
-        m_open = mock_open(read_data=mock_file_content)
-        
-        with patch("builtins.open", m_open):
-            update_configuration({"security_url": "https://offline.ubuntu.com/security"})
-        
-        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
-        handle = m_open()
-        
-        written = _written(handle)
-        assert "security_url: https://offline.ubuntu.com/security" in written
-        # Should not contain the old value
-        assert "https://esm.ubuntu.com" not in written
+        # First add a security_url
+        with open(mock_uaclient_config, "r+") as f:
+            config = yaml.safe_load(f)
+            config["security_url"] = "https://esm.ubuntu.com"
+            f.seek(0)
+            yaml.dump(config, f)
+            f.truncate()
 
-    def test_update_configuration_empty_dict(self):
+        update_configuration({"security_url": "https://offline.ubuntu.com/security"})
+
+        with open(mock_uaclient_config) as f:
+            content = f.read()
+            config = yaml.safe_load(content)
+
+        assert config["security_url"] == "https://offline.ubuntu.com/security"
+        # Should not contain the old value
+        assert "https://esm.ubuntu.com" not in content
+
+    def test_update_configuration_empty_dict(self, mock_uaclient_config):
         """Test that passing an empty dict doesn't break anything."""
-        mock_file_content = dedent(
-            """\
-            contract_url: 'https://contracts.canonical.com'
-            data_dir: /var/lib/ubuntu-advantage
-            """
-        )
-        m_open = mock_open(read_data=mock_file_content)
-        
-        with patch("builtins.open", m_open):
-            update_configuration({})
-        
-        m_open.assert_called_once_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
-        handle = m_open()
-        handle.seek.assert_called_once_with(0)
-        handle.truncate.assert_called_once()
-        
-        written = _written(handle)
+        update_configuration({})
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
         # Original values should still be present
-        assert "contract_url: https://contracts.canonical.com" in written
-        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
