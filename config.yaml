@@ -47,5 +47,5 @@ options:
   security_url:
     default: "https://ubuntu.com/security"
     description:
-      The URL from which to receive USN information
+      The URL from which to receive USN and CVE information.
     type: string

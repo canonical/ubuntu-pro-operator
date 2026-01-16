@@ -804,23 +804,24 @@ class TestUpdateConfiguration:
 
     def test_update_configuration_overwrites_existing_key(self, mock_uaclient_config):
         """Test that existing keys are properly overwritten."""
-        # First add a security_url
+        existing_url = "https://ubuntu.com/security"
+        new_url = "https://offline.ubuntu.com/security"
+
         with open(mock_uaclient_config, "r+") as f:
             config = yaml.safe_load(f)
-            config["security_url"] = "https://esm.ubuntu.com"
+            config["security_url"] = existing_url
             f.seek(0)
             yaml.dump(config, f)
             f.truncate()
 
-        update_configuration({"security_url": "https://offline.ubuntu.com/security"})
+        update_configuration({"security_url": new_url})
 
         with open(mock_uaclient_config) as f:
             content = f.read()
             config = yaml.safe_load(content)
 
-        assert config["security_url"] == "https://offline.ubuntu.com/security"
-        # Should not contain the old value
-        assert "https://esm.ubuntu.com" not in content
+        assert config["security_url"] == new_url
+        assert existing_url not in content
 
     def test_update_configuration_empty_dict(self, mock_uaclient_config):
         """Test that passing an empty dict doesn't break anything."""
@@ -829,6 +830,5 @@ class TestUpdateConfiguration:
         with open(mock_uaclient_config) as f:
             config = yaml.safe_load(f)
 
-        # Original values should still be present
         assert config["contract_url"] == "https://contracts.canonical.com"
         assert config["data_dir"] == "/var/lib/ubuntu-advantage"
