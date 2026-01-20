@@ -463,14 +463,12 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
+        expected = dedent("""\
             contract_url: https://contracts.staging.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """
-        )
+        """)
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([]))
@@ -510,14 +508,12 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
+        expected = dedent("""\
             contract_url: https://contracts.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """
-        )
+        """)
         assert m_get_status_output.call_count == 2
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
