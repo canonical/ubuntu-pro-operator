@@ -783,7 +783,7 @@ def mocks():
 class TestOnConfigChanged:
     """pytest-based tests for the `on.config_changed` hook.
 
-    Eventually these should use `Context` instead of harness as well.
+    Eventually these should use `Context` instead of `harness`.
     """
 
     def test_file_based_configs(self, harness, mocks, mock_uaclient_config):

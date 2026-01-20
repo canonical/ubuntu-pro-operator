@@ -182,13 +182,17 @@ async def test_detach_subscription(ops_test: OpsTest):
 
 async def test_set_security_url(ops_test: OpsTest):
     charm = ops_test.model.applications[CHARM_NAME]
+
     await charm.set_config(
+        # Use default Livepatch configs to ensure this test is not dependent on a valid
+        # Livepatch token or URL.
         {
+            "livepatch_server_url": "",
+            "livepatch_token": "",
             "security_url": "https://offline.ubuntu.com/security",
             "token": TEST_TOKEN,
         }
     )
-
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]
