@@ -416,13 +416,13 @@ class TestCharm(TestCase):
 
     def test_config_changed_security_url(self):
         """If the security_url is set to a new value, update it."""
-        new_url = "https://offline-ubuntu.com/security"
+        new_url = "https://offline.ubuntu.com/security"
         self.assertNotEqual(new_url, self.harness.charm.config["security_url"])
         self.harness.update_config({"security_url": new_url})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
         written = _written(handle)
-        assert "security_url: https://offline-ubuntu.com/security" in written
+        assert "security_url: https://offline.ubuntu.com/security" in written
 
     def test_config_changed_contract_url(self):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
