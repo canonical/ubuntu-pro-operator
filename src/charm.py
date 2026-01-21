@@ -54,6 +54,21 @@ def update_configuration(config_updates):
         f.truncate()
 
 
+def remove_configuration(config_keys):
+    """Remove configuration keys from the uaclient configuration file.
+
+    Args:
+        config_keys: List of keys to remove from the config file.
+    """
+    with open(PRO_CONFIG_FILE, "r+") as f:
+        client_config = yaml.safe_load(f)
+        for key in config_keys:
+            client_config.pop(key, None)
+        f.seek(0)
+        yaml.dump(client_config, f)
+        f.truncate()
+
+
 def detach_subscription(env):
     """Detach from any ubuntu-advantage subscription."""
     logger.info("Detaching ubuntu-advantage subscription")
@@ -381,7 +396,10 @@ class UbuntuAdvantageCharm(CharmBase):
         old_security_url = self._state.security_url
         config_changed = old_security_url != security_url
         if config_changed:
-            update_configuration({"security_url": security_url})
+            if security_url:
+                update_configuration({"security_url": security_url})
+            else:
+                remove_configuration(["security_url"])
             self._state.security_url = security_url
 
     def _handle_subscription_state(self):

@@ -14,7 +14,7 @@ import yaml
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
 
-from charm import UbuntuAdvantageCharm, update_configuration
+from charm import UbuntuAdvantageCharm, remove_configuration, update_configuration
 from exceptions import ProcessExecutionError
 
 STATUS_ATTACHED = json.dumps(
@@ -87,9 +87,7 @@ class TestCharm(TestCase):
         )
         self.assertEqual(self.harness.charm.config.get("ppa"), "")
         self.assertEqual(self.harness.charm.config.get("token"), "")
-        self.assertEqual(
-            self.harness.charm.config.get("security_url"), "https://ubuntu.com/security"
-        )
+        self.assertEqual(self.harness.charm.config.get("security_url"), "")
 
     def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
@@ -429,7 +427,7 @@ class TestCharm(TestCase):
         assert "data_dir: /var/lib/ubuntu-advantage" in written
         assert "log_file: /var/log/ubuntu-advantage.log" in written
         assert "log_level: debug" in written
-        assert "security_url: https://ubuntu.com/security" in written
+        assert "security_url" not in written
         assert self.mocks["status_output"].call_count == 1
         self.assertEqual(
             self.harness.charm._state.contract_url, "https://contracts.staging.canonical.com"
@@ -894,6 +892,66 @@ class TestUpdateConfiguration:
     def test_update_configuration_empty_dict(self, mock_uaclient_config):
         """Test that passing an empty dict doesn't break anything."""
         update_configuration({})
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+
+
+class TestRemoveConfiguration:
+    """Test the remove_configuration helper function."""
+
+    def test_remove_configuration_single_key(self, mock_uaclient_config):
+        """Test removing a single configuration key."""
+        # First add a key
+        update_configuration({"security_url": "https://offline.ubuntu.com/security"})
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+        assert "security_url" in config
+
+        # Now remove it
+        remove_configuration(["security_url"])
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert "security_url" not in config
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+
+    def test_remove_configuration_multiple_keys(self, mock_uaclient_config):
+        """Test removing multiple configuration keys at once."""
+        # First add keys
+        update_configuration(
+            {"security_url": "https://offline.ubuntu.com/security", "custom_key": "custom_value"}
+        )
+
+        # Now remove them
+        remove_configuration(["security_url", "custom_key"])
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert "security_url" not in config
+        assert "custom_key" not in config
+        assert config["contract_url"] == "https://contracts.canonical.com"
+
+    def test_remove_configuration_nonexistent_key(self, mock_uaclient_config):
+        """Test that removing a nonexistent key doesn't break anything."""
+        remove_configuration(["nonexistent_key"])
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+
+    def test_remove_configuration_empty_list(self, mock_uaclient_config):
+        """Test that passing an empty list doesn't break anything."""
+        remove_configuration([])
 
         with open(mock_uaclient_config) as f:
             config = yaml.safe_load(f)

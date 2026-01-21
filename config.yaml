@@ -45,7 +45,7 @@ options:
       A list of possible services can be found by running "pro status --all" on a machine with the ubuntu-pro-client package installed.
     type: string
   security_url:
-    default: "https://ubuntu.com/security"
+    default: ""
     description:
-      The URL from which to receive USN and CVE information.
+      The URL from which to receive USN and CVE information. If unset, the default from the Ubuntu Pro client will be used.
     type: string
