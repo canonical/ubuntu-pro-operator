@@ -100,8 +100,7 @@ class TestCharm(TestCase):
                         ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
                     ),
                 ]
-            ),
-            any_order=True,
+            )
         )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
@@ -116,8 +115,7 @@ class TestCharm(TestCase):
                         ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
                     ),
                 ]
-            ),
-            any_order=True,
+            )
         )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
@@ -154,8 +152,7 @@ class TestCharm(TestCase):
                         ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
                     ),
                 ]
-            ),
-            any_order=True,
+            )
         )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
@@ -177,8 +174,7 @@ class TestCharm(TestCase):
                         ["add-apt-repository", "--yes", "ppa:ua-client/stable"], env=self.proxy_env
                     ),
                 ]
-            ),
-            any_order=True,
+            )
         )
         self._assert_apt_calls()
         self.assertEqual(self.harness.charm._state.ppa, "ppa:ua-client/stable")
