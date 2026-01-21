@@ -812,7 +812,6 @@ class TestOnConfigChanged:
 
     def test_security_url_unset(self, harness, mocks, mock_uaclient_config):
         """If the security_url is unset, it is removed from the config file."""
-
         harness.update_config({"security_url": "https://offline.ubuntu.com/security"})
         with open(mock_uaclient_config) as f:
             assert "security_url" in yaml.safe_load(f)
