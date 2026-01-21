@@ -277,7 +277,7 @@ class UbuntuAdvantageCharm(CharmBase):
             ppa=None,
             livepatch_installed=False,
             hashed_livepatch_token=None,
-            security_url=None,
+            security_url="",
         )
 
         self.framework.observe(self.on.config_changed, self.config_changed)

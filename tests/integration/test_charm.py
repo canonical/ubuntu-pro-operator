@@ -180,7 +180,8 @@ async def test_detach_subscription(ops_test: OpsTest):
     assert unit.workload_status == BlockedStatus.name
 
 
-async def test_set_security_url(ops_test: OpsTest):
+@pytest.mark.parametrize("security_url", ["", "https://offline.ubuntu.com/security"])
+async def test_set_security_url(ops_test: OpsTest, security_url: str):
     charm = ops_test.model.applications[CHARM_NAME]
 
     await charm.set_config(
@@ -189,7 +190,7 @@ async def test_set_security_url(ops_test: OpsTest):
         {
             "livepatch_server_url": "",
             "livepatch_token": "",
-            "security_url": "https://offline.ubuntu.com/security",
+            "security_url": security_url,
             "token": TEST_TOKEN,
         }
     )
