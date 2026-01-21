@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LIVEPATCH_SERVER = "https://livepatch.canonical.com"
 
+PRO_CONFIG_FILE = "/etc/ubuntu-advantage/uaclient.conf"
+
 
 def install_ppa(ppa, env):
     """Install specified ppa."""
@@ -37,11 +39,31 @@ def remove_ppa(ppa, env):
     subprocess.check_call(["add-apt-repository", "--remove", "--yes", ppa], env=env)
 
 
-def update_configuration(contract_url):
-    """Write the contract_url to the uaclient configuration file."""
-    with open("/etc/ubuntu-advantage/uaclient.conf", "r+") as f:
+def update_configuration(config_updates):
+    """Write configuration values to the uaclient configuration file.
+
+    Args:
+        config_updates: Dictionary of key-value pairs to update in the config file.
+    """
+    with open(PRO_CONFIG_FILE, "r+") as f:
         client_config = yaml.safe_load(f)
-        client_config["contract_url"] = contract_url
+        for key, value in config_updates.items():
+            client_config[key] = value
+        f.seek(0)
+        yaml.dump(client_config, f)
+        f.truncate()
+
+
+def remove_configuration(config_keys):
+    """Remove configuration keys from the uaclient configuration file.
+
+    Args:
+        config_keys: List of keys to remove from the config file.
+    """
+    with open(PRO_CONFIG_FILE, "r+") as f:
+        client_config = yaml.safe_load(f)
+        for key in config_keys:
+            client_config.pop(key, None)
         f.seek(0)
         yaml.dump(client_config, f)
         f.truncate()
@@ -255,6 +277,7 @@ class UbuntuAdvantageCharm(CharmBase):
             ppa=None,
             livepatch_installed=False,
             hashed_livepatch_token=None,
+            security_url="",
         )
 
         self.framework.observe(self.on.config_changed, self.config_changed)
@@ -297,6 +320,7 @@ class UbuntuAdvantageCharm(CharmBase):
         self._handle_ppa_state()
         self._handle_package_state()
         self._configure_livepatch()
+        self._configure_security_url()
         if isinstance(self.unit.status, BlockedStatus):
             return
         self._handle_subscription_state()
@@ -366,6 +390,18 @@ class UbuntuAdvantageCharm(CharmBase):
             logger.error("Failed to configure livepatch: %s", str(e))
             self.unit.status = BlockedStatus(str(e))
 
+    def _configure_security_url(self):
+        """Configure the URL to use for USN updates."""
+        security_url = self.config.get("security_url").strip()
+        old_security_url = self._state.security_url
+        config_changed = old_security_url != security_url
+        if config_changed:
+            if security_url:
+                update_configuration({"security_url": security_url})
+            else:
+                remove_configuration(["security_url"])
+            self._state.security_url = security_url
+
     def _handle_subscription_state(self):
         """Handle uaclient configuration and subscription attachment."""
         token = self.config.get("token", "").strip()
@@ -384,7 +420,7 @@ class UbuntuAdvantageCharm(CharmBase):
 
         if config_changed:
             logger.info("Updating uaclient.conf")
-            update_configuration(contract_url)
+            update_configuration({"contract_url": contract_url})
             self._state.contract_url = contract_url
 
         if not token:

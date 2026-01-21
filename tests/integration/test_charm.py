@@ -178,3 +178,23 @@ async def test_detach_subscription(ops_test: OpsTest):
 
     unit = charm.units[0]
     assert unit.workload_status == BlockedStatus.name
+
+
+@pytest.mark.parametrize("security_url", ["", "https://offline.ubuntu.com/security"])
+async def test_set_security_url(ops_test: OpsTest, security_url: str):
+    charm = ops_test.model.applications[CHARM_NAME]
+
+    await charm.set_config(
+        # Use default Livepatch configs to ensure this test is not dependent on a valid
+        # Livepatch token or URL.
+        {
+            "livepatch_server_url": "",
+            "livepatch_token": "",
+            "security_url": security_url,
+            "token": TEST_TOKEN,
+        }
+    )
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == ActiveStatus.name

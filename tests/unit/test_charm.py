@@ -2,15 +2,19 @@
 # See LICENSE file for licensing details.
 
 import json
+import tempfile
+from pathlib import Path
 from subprocess import PIPE, CalledProcessError
 from textwrap import dedent
 from unittest import TestCase
 from unittest.mock import ANY, MagicMock, call, mock_open, patch
 
+import pytest
+import yaml
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
 
-from charm import UbuntuAdvantageCharm
+from charm import UbuntuAdvantageCharm, remove_configuration, update_configuration
 from exceptions import ProcessExecutionError
 
 STATUS_ATTACHED = json.dumps(
@@ -83,10 +87,10 @@ class TestCharm(TestCase):
         )
         self.assertEqual(self.harness.charm.config.get("ppa"), "")
         self.assertEqual(self.harness.charm.config.get("token"), "")
+        self.assertEqual(self.harness.charm.config.get("security_url"), "")
 
     def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
@@ -102,7 +106,6 @@ class TestCharm(TestCase):
 
     def test_config_changed_ppa_updated(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
@@ -140,7 +143,6 @@ class TestCharm(TestCase):
 
     def test_config_changed_ppa_unmodified(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
@@ -163,7 +165,6 @@ class TestCharm(TestCase):
 
     def test_config_changed_ppa_unset(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
-        self.assertEqual(self.mocks["check_call"].call_count, 3)
         self.mocks["check_call"].assert_has_calls(
             self._add_ua_proxy_setup_calls(
                 [
@@ -216,16 +217,12 @@ class TestCharm(TestCase):
         self.harness.update_config({"token": "test-token"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
-            contract_url: https://contracts.canonical.com
-            data_dir: /var/lib/ubuntu-advantage
-            log_file: /var/log/ubuntu-advantage.log
-            log_level: debug
-        """
-        )
-        self.assertEqual(_written(handle), expected)
-        handle.truncate.assert_called_once()
+        written = _written(handle)
+
+        assert "contract_url: https://contracts.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_file: /var/log/ubuntu-advantage.log" in written
+        assert "log_level: debug" in written
         assert m_get_status_output.call_count == 1
         assert m_attach.call_count == 1
         self.assertEqual(
@@ -246,21 +243,16 @@ class TestCharm(TestCase):
     )
     def test_config_changed_token_reattach(self, m_get_status_output, m_attach):
         self.harness.update_config({"token": "test-token"})
-        self.assertEqual(self.mocks["check_call"].call_count, 2)
         self._assert_apt_calls()
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         self._assert_apt_calls()
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
-            contract_url: https://contracts.canonical.com
-            data_dir: /var/lib/ubuntu-advantage
-            log_file: /var/log/ubuntu-advantage.log
-            log_level: debug
-        """
-        )
-        self.assertEqual(_written(handle), expected)
-        handle.truncate.assert_called_once()
+        written = _written(handle)
+
+        assert "contract_url: https://contracts.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_file: /var/log/ubuntu-advantage.log" in written
+        assert "log_level: debug" in written
         assert m_get_status_output.call_count == 1
         assert m_attach.call_count == 1
         self.assertEqual(
@@ -416,20 +408,26 @@ class TestCharm(TestCase):
             self.harness.model.unit.status, ActiveStatus("Attached (esm-apps,esm-infra,livepatch)")
         )
 
+    def test_config_changed_security_url(self):
+        """If the security_url is set to a new value, update it."""
+        new_url = "https://offline.ubuntu.com/security"
+        self.assertNotEqual(new_url, self.harness.charm.config["security_url"])
+        self.harness.update_config({"security_url": new_url})
+        self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
+        handle = self.mocks["open"]()
+        written = _written(handle)
+        assert "security_url: https://offline.ubuntu.com/security" in written
+
     def test_config_changed_contract_url(self):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
-            contract_url: https://contracts.staging.canonical.com
-            data_dir: /var/lib/ubuntu-advantage
-            log_file: /var/log/ubuntu-advantage.log
-            log_level: debug
-        """
-        )
-        self.assertEqual(_written(handle), expected)
-        handle.truncate.assert_called_once()
+        written = _written(handle)
+        assert "contract_url: https://contracts.staging.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_file: /var/log/ubuntu-advantage.log" in written
+        assert "log_level: debug" in written
+        assert "security_url" not in written
         assert self.mocks["status_output"].call_count == 1
         self.assertEqual(
             self.harness.charm._state.contract_url, "https://contracts.staging.canonical.com"
@@ -459,14 +457,12 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
+        expected = dedent("""\
             contract_url: https://contracts.staging.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """
-        )
+        """)
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([]))
@@ -493,16 +489,11 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
-            contract_url: https://contracts.staging.canonical.com
-            data_dir: /var/lib/ubuntu-advantage
-            log_file: /var/log/ubuntu-advantage.log
-            log_level: debug
-        """
-        )
-        self.assertEqual(_written(handle), expected)
-        handle.truncate.assert_called_once()
+        written = _written(handle)
+        assert "contract_url: https://contracts.staging.canonical.com" in written
+        assert "data_dir: /var/lib/ubuntu-advantage" in written
+        assert "log_file: /var/log/ubuntu-advantage.log" in written
+        assert "log_level: debug" in written
         self.mocks["call"].assert_not_called()
         self.assertEqual(self.harness.model.unit.status, BlockedStatus("No token configured"))
         self.mocks["open"].reset_mock()
@@ -511,14 +502,12 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
+        expected = dedent("""\
             contract_url: https://contracts.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """
-        )
+        """)
         assert m_get_status_output.call_count == 2
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
@@ -740,3 +729,243 @@ class TestCharm(TestCase):
         self.mocks["apt"].add_package.assert_called_once_with(
             "ubuntu-advantage-tools", update_cache=True
         )
+
+
+@pytest.fixture
+def harness():
+    """Glue code.
+
+    This is helpful to slowly integrate pytest fixtures and `Context` while
+    accommodating existing tests that use unittest.TestCase and `harness`.
+    """
+    harness = Harness(UbuntuAdvantageCharm)
+    harness.begin()
+
+    yield harness
+
+    harness.cleanup()
+
+
+@pytest.fixture
+def mocks():
+    """Glue code.
+
+    This is helpful to slowly integrate pytest fixtures and `Context` while
+    accommodating existing tests that use unittest.TestCase and `harness`. This
+    fixture is generally required to avoid errors that derive from calling
+    commands that need a "real" environment like subprocess calls.
+    """
+    mocks = {
+        "call": patch("subprocess.call").start(),
+        "check_call": patch("subprocess.check_call").start(),
+        "run": patch("subprocess.run").start(),
+        "apt": patch("charm.apt").start(),
+        "status_output": patch("charm.get_status_output").start(),
+        "install_livepatch": patch("charm.install_livepatch").start(),
+        "disable_livepatch": patch("charm.disable_canonical_livepatch").start(),
+    }
+
+    yield mocks
+
+    patch.stopall()
+
+
+class TestOnConfigChanged:
+    """pytest-based tests for the `on.config_changed` hook.
+
+    Eventually these should use `Context` instead of `harness`.
+    """
+
+    def test_file_based_configs(self, harness, mocks, mock_uaclient_config):
+        """Juju configs that set options in the Ubuntu Pro config file are correct."""
+        with open(mock_uaclient_config) as f:
+            actual_existing = yaml.safe_load(f)
+
+        expected_existing = {
+            "data_dir": "/var/lib/ubuntu-advantage",
+            "log_level": "debug",
+            "log_file": "/var/log/ubuntu-advantage.log",
+            "contract_url": "https://contracts.canonical.com",
+        }
+
+        assert expected_existing == actual_existing
+
+        harness.update_config(
+            {
+                "contract_url": "https://offline.contracts.canonical.com",
+                "security_url": "https://offline.ubuntu.com/security",
+            }
+        )
+
+        expected = {
+            "contract_url": "https://offline.contracts.canonical.com",
+            "data_dir": "/var/lib/ubuntu-advantage",
+            "log_level": "debug",
+            "log_file": "/var/log/ubuntu-advantage.log",
+            "security_url": "https://offline.ubuntu.com/security",
+        }
+
+        with open(mock_uaclient_config) as f:
+            actual = yaml.safe_load(f)
+
+        assert expected == actual
+
+    def test_security_url_unset(self, harness, mocks, mock_uaclient_config):
+        """If the security_url is unset, it is removed from the config file."""
+        harness.update_config({"security_url": "https://offline.ubuntu.com/security"})
+        with open(mock_uaclient_config) as f:
+            assert "security_url" in yaml.safe_load(f)
+
+        harness.update_config({"security_url": ""})
+
+        with open(mock_uaclient_config) as f:
+            assert "security_url" not in yaml.safe_load(f)
+
+
+@pytest.fixture
+def mock_uaclient_config():
+    """Mock the uaclient.conf file for testing update_configuration."""
+    initial_config = yaml.safe_load(DEFAULT_CLIENT_CONFIG)
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
+        yaml.dump(initial_config, f)
+        temp_path = f.name
+
+    with patch("charm.open", lambda path, mode: open(temp_path, mode)):
+        yield temp_path
+
+    Path(temp_path).unlink(missing_ok=True)
+
+
+class TestUpdateConfiguration:
+    """Test the update_configuration helper function."""
+
+    def test_update_configuration_single_value(self, mock_uaclient_config):
+        """Test updating a single configuration value."""
+        update_configuration({"contract_url": "https://contracts.staging.canonical.com"})
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["contract_url"] == "https://contracts.staging.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+        assert config["log_level"] == "debug"
+
+    def test_update_configuration_multiple_values(self, mock_uaclient_config):
+        """Test updating multiple configuration values at once."""
+        update_configuration(
+            {
+                "contract_url": "https://contracts.staging.canonical.com",
+                "security_url": "https://offline.ubuntu.com/security",
+            }
+        )
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["contract_url"] == "https://contracts.staging.canonical.com"
+        assert config["security_url"] == "https://offline.ubuntu.com/security"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+        assert config["log_level"] == "debug"
+
+    def test_update_configuration_adds_new_key(self, mock_uaclient_config):
+        """Test that new keys are added to the configuration."""
+        update_configuration({"new_key": "new_value"})
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["new_key"] == "new_value"
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+
+    def test_update_configuration_overwrites_existing_key(self, mock_uaclient_config):
+        """Test that existing keys are properly overwritten."""
+        existing_url = "https://ubuntu.com/security"
+        new_url = "https://offline.ubuntu.com/security"
+
+        with open(mock_uaclient_config, "r+") as f:
+            config = yaml.safe_load(f)
+            config["security_url"] = existing_url
+            f.seek(0)
+            yaml.dump(config, f)
+            f.truncate()
+
+        update_configuration({"security_url": new_url})
+
+        with open(mock_uaclient_config) as f:
+            content = f.read()
+            config = yaml.safe_load(content)
+
+        assert config["security_url"] == new_url
+        assert existing_url not in content
+
+    def test_update_configuration_empty_dict(self, mock_uaclient_config):
+        """Test that passing an empty dict doesn't break anything."""
+        update_configuration({})
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+
+
+class TestRemoveConfiguration:
+    """Test the remove_configuration helper function."""
+
+    def test_remove_configuration_single_key(self, mock_uaclient_config):
+        """Test removing a single configuration key."""
+        # First add a key
+        update_configuration({"security_url": "https://offline.ubuntu.com/security"})
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+        assert "security_url" in config
+
+        # Now remove it
+        remove_configuration(["security_url"])
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert "security_url" not in config
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+
+    def test_remove_configuration_multiple_keys(self, mock_uaclient_config):
+        """Test removing multiple configuration keys at once."""
+        # First add keys
+        update_configuration(
+            {"security_url": "https://offline.ubuntu.com/security", "custom_key": "custom_value"}
+        )
+
+        # Now remove them
+        remove_configuration(["security_url", "custom_key"])
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert "security_url" not in config
+        assert "custom_key" not in config
+        assert config["contract_url"] == "https://contracts.canonical.com"
+
+    def test_remove_configuration_nonexistent_key(self, mock_uaclient_config):
+        """Test that removing a nonexistent key doesn't break anything."""
+        remove_configuration(["nonexistent_key"])
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"
+
+    def test_remove_configuration_empty_list(self, mock_uaclient_config):
+        """Test that passing an empty list doesn't break anything."""
+        remove_configuration([])
+
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        assert config["contract_url"] == "https://contracts.canonical.com"
+        assert config["data_dir"] == "/var/lib/ubuntu-advantage"

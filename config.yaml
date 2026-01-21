@@ -44,3 +44,8 @@ options:
       A comma-separated list of services to enable when attaching to a pro subscription. This list overrides the default services. If specified, only these services will be activated. If left empty, the default services are activated.
       A list of possible services can be found by running "pro status --all" on a machine with the ubuntu-pro-client package installed.
     type: string
+  security_url:
+    default: ""
+    description:
+      The URL from which to receive USN and CVE information. If unset, the default from the Ubuntu Pro client will be used.
+    type: string
