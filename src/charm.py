@@ -278,6 +278,7 @@ class UbuntuAdvantageCharm(CharmBase):
             livepatch_installed=False,
             hashed_livepatch_token=None,
             security_url="",
+            apt_news_url="",
         )
 
         self.framework.observe(self.on.config_changed, self.config_changed)
@@ -321,6 +322,7 @@ class UbuntuAdvantageCharm(CharmBase):
         self._handle_package_state()
         self._configure_livepatch()
         self._configure_security_url()
+        self._configure_apt_news_url()
         if isinstance(self.unit.status, BlockedStatus):
             return
         self._handle_subscription_state()
@@ -401,6 +403,18 @@ class UbuntuAdvantageCharm(CharmBase):
             else:
                 remove_configuration(["security_url"])
             self._state.security_url = security_url
+
+    def _configure_apt_news_url(self):
+        """Configure the URL to use for apt news updates."""
+        apt_news_url = self.config.get("apt_news_url").strip()
+        old_apt_news_url = self._state.apt_news_url
+        config_changed = old_apt_news_url != apt_news_url
+        if config_changed:
+            if apt_news_url:
+                update_configuration({"apt_news_url": apt_news_url})
+            else:
+                remove_configuration(["apt_news_url"])
+            self._state.apt_news_url = apt_news_url
 
     def _handle_subscription_state(self):
         """Handle uaclient configuration and subscription attachment."""
