@@ -278,6 +278,7 @@ class UbuntuAdvantageCharm(CharmBase):
             livepatch_installed=False,
             hashed_livepatch_token=None,
             security_url="",
+            vulnerability_data_url_prefix="",
             apt_news_url="",
         )
 
@@ -322,6 +323,7 @@ class UbuntuAdvantageCharm(CharmBase):
         self._handle_package_state()
         self._configure_livepatch()
         self._configure_security_url()
+        self.__configure_vulnerability_data_url_prefix()
         self._configure_apt_news_url()
         if isinstance(self.unit.status, BlockedStatus):
             return
@@ -403,6 +405,18 @@ class UbuntuAdvantageCharm(CharmBase):
             else:
                 remove_configuration(["security_url"])
             self._state.security_url = security_url
+
+    def __configure_vulnerability_data_url_prefix(self):
+        """Configure the URL prefix to use for vulnerability data updates."""
+        vulnerability_data_url_prefix = self.config.get("vulnerability_data_url_prefix").strip()
+        old_vulnerability_data_url_prefix = self._state.vulnerability_data_url_prefix
+        config_changed = old_vulnerability_data_url_prefix != vulnerability_data_url_prefix
+        if config_changed:
+            if vulnerability_data_url_prefix:
+                update_configuration({"vulnerability_data_url_prefix": vulnerability_data_url_prefix})
+            else:
+                remove_configuration(["vulnerability_data_url_prefix"])
+            self._state.vulnerability_data_url_prefix = vulnerability_data_url_prefix
 
     def _configure_apt_news_url(self):
         """Configure the URL to use for apt news updates."""
