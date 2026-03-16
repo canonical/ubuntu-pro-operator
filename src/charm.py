@@ -28,6 +28,10 @@ DEFAULT_LIVEPATCH_SERVER = "https://livepatch.canonical.com"
 
 PRO_CONFIG_FILE = "/etc/ubuntu-advantage/uaclient.conf"
 
+NESTED_CONFIG_KEYS = [
+    "apt_news_url",
+    "vulnerability_data_url_prefix",
+]
 
 def install_ppa(ppa, env):
     """Install specified ppa."""
@@ -40,32 +44,46 @@ def remove_ppa(ppa, env):
 
 
 def update_configuration(config_updates):
-    """Write configuration values to the uaclient configuration file.
-
-    Args:
-        config_updates: Dictionary of key-value pairs to update in the config file.
-    """
+    """Write configuration values to the uaclient configuration file with proper nesting."""
     with open(PRO_CONFIG_FILE, "r+") as f:
-        client_config = yaml.safe_load(f)
+        client_config = yaml.safe_load(f) or {}
+        
+        # Ensure the nested dictionary exists if we need it
+        if "ua_config" not in client_config:
+            client_config["ua_config"] = {}
+
         for key, value in config_updates.items():
-            client_config[key] = value
+            if key in NESTED_CONFIG_KEYS:
+                client_config["ua_config"][key] = value
+            else:
+                client_config[key] = value
+                
+        # Clean up empty ua_config if it was created but not used
+        if not client_config["ua_config"]:
+            client_config.pop("ua_config")
+
         f.seek(0)
-        yaml.dump(client_config, f)
+        yaml.dump(client_config, f, default_flow_style=False)
         f.truncate()
 
 
 def remove_configuration(config_keys):
-    """Remove configuration keys from the uaclient configuration file.
-
-    Args:
-        config_keys: List of keys to remove from the config file.
-    """
+    """Remove configuration keys, handling both flat and nested locations."""
     with open(PRO_CONFIG_FILE, "r+") as f:
-        client_config = yaml.safe_load(f)
+        client_config = yaml.safe_load(f) or {}
+        
         for key in config_keys:
-            client_config.pop(key, None)
+            if key in NESTED_CONFIG_KEYS and "ua_config" in client_config:
+                client_config["ua_config"].pop(key, None)
+            else:
+                client_config.pop(key, None)
+
+        # Remove the parent key if it's now empty
+        if "ua_config" in client_config and not client_config["ua_config"]:
+            client_config.pop("ua_config")
+
         f.seek(0)
-        yaml.dump(client_config, f)
+        yaml.dump(client_config, f, default_flow_style=False)
         f.truncate()
 
 
@@ -323,7 +341,7 @@ class UbuntuAdvantageCharm(CharmBase):
         self._handle_package_state()
         self._configure_livepatch()
         self._configure_security_url()
-        self.__configure_vulnerability_data_url_prefix()
+        self._configure_vulnerability_data_url_prefix()
         self._configure_apt_news_url()
         if isinstance(self.unit.status, BlockedStatus):
             return
@@ -406,7 +424,7 @@ class UbuntuAdvantageCharm(CharmBase):
                 remove_configuration(["security_url"])
             self._state.security_url = security_url
 
-    def __configure_vulnerability_data_url_prefix(self):
+    def _configure_vulnerability_data_url_prefix(self):
         """Configure the URL prefix to use for vulnerability data updates."""
         vulnerability_data_url_prefix = self.config.get("vulnerability_data_url_prefix").strip()
         old_vulnerability_data_url_prefix = self._state.vulnerability_data_url_prefix
