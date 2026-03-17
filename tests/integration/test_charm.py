@@ -198,3 +198,73 @@ async def test_set_security_url(ops_test: OpsTest, security_url: str):
 
     unit = charm.units[0]
     assert unit.workload_status == ActiveStatus.name
+
+
+@pytest.mark.parametrize(
+    "apt_news_url", ["", "https://example.com/apt-news"]
+)
+async def test_set_apt_news_url(ops_test: OpsTest, apt_news_url: str):
+    """Test setting and unsetting apt_news_url config option."""
+    charm = ops_test.model.applications[CHARM_NAME]
+
+    await charm.set_config(
+        {
+            "livepatch_server_url": "",
+            "livepatch_token": "",
+            "apt_news_url": apt_news_url,
+            "token": TEST_TOKEN,
+        }
+    )
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == ActiveStatus.name
+
+
+@pytest.mark.parametrize(
+    "vulnerability_data_url_prefix",
+    ["", "https://example.com/cve-data"],
+)
+async def test_set_vulnerability_data_url_prefix(
+    ops_test: OpsTest, vulnerability_data_url_prefix: str
+):
+    """Test setting and unsetting vulnerability_data_url_prefix config option."""
+    charm = ops_test.model.applications[CHARM_NAME]
+
+    await charm.set_config(
+        {
+            "livepatch_server_url": "",
+            "livepatch_token": "",
+            "vulnerability_data_url_prefix": vulnerability_data_url_prefix,
+            "token": TEST_TOKEN,
+        }
+    )
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == ActiveStatus.name
+
+
+async def test_nested_and_flat_configs_coexist(ops_test: OpsTest):
+    """Test that nested config keys and flat config keys coexist without conflict."""
+    charm = ops_test.model.applications[CHARM_NAME]
+
+    await charm.set_config(
+        {
+            "livepatch_server_url": "",
+            "livepatch_token": "",
+            "security_url": "https://offline.ubuntu.com/security",
+            "apt_news_url": "https://example.com/apt-news",
+            "vulnerability_data_url_prefix": "https://example.com/cve-data",
+            "token": TEST_TOKEN,
+        }
+    )
+    await ops_test.model.wait_for_idle()
+
+    unit = charm.units[0]
+    assert unit.workload_status == ActiveStatus.name
+
+    # Detach
+    await charm.set_config({"token": ""})
+    await ops_test.model.wait_for_idle()
+    assert unit.workload_status == BlockedStatus.name
