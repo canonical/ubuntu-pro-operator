@@ -200,9 +200,7 @@ async def test_set_security_url(ops_test: OpsTest, security_url: str):
     assert unit.workload_status == ActiveStatus.name
 
 
-@pytest.mark.parametrize(
-    "apt_news_url", ["", "https://example.com/apt-news"]
-)
+@pytest.mark.parametrize("apt_news_url", ["", "https://example.com/apt-news"])
 async def test_set_apt_news_url(ops_test: OpsTest, apt_news_url: str):
     """Test setting and unsetting apt_news_url config option."""
     charm = ops_test.model.applications[CHARM_NAME]

@@ -477,12 +477,14 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent("""\
+        expected = dedent(
+            """\
             contract_url: https://contracts.staging.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """)
+        """
+        )
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([]))
@@ -522,12 +524,14 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent("""\
+        expected = dedent(
+            """\
             contract_url: https://contracts.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """)
+        """
+        )
         assert m_get_status_output.call_count == 2
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
@@ -864,9 +868,7 @@ class TestOnConfigChanged:
 
     def test_vulnerability_data_url_prefix_set(self, harness, mocks, mock_uaclient_config):
         """If vulnerability_data_url_prefix is set, it is written under ua_config."""
-        harness.update_config(
-            {"vulnerability_data_url_prefix": "https://example.com/cve-data"}
-        )
+        harness.update_config({"vulnerability_data_url_prefix": "https://example.com/cve-data"})
 
         with open(mock_uaclient_config) as f:
             config = yaml.safe_load(f)
@@ -877,9 +879,7 @@ class TestOnConfigChanged:
 
     def test_vulnerability_data_url_prefix_unset(self, harness, mocks, mock_uaclient_config):
         """If vulnerability_data_url_prefix is unset, it is removed from ua_config."""
-        harness.update_config(
-            {"vulnerability_data_url_prefix": "https://example.com/cve-data"}
-        )
+        harness.update_config({"vulnerability_data_url_prefix": "https://example.com/cve-data"})
         with open(mock_uaclient_config) as f:
             assert "vulnerability_data_url_prefix" in yaml.safe_load(f).get("ua_config", {})
 
@@ -909,23 +909,19 @@ class TestOnConfigChanged:
         assert config["security_url"] == "https://offline-security.example.com"
         # Verify the specific value of the flat key we didn't touch matches the current config
         assert config["contract_url"] == expected_contract_url
-        
+
         # Verify nested keys
         assert config["ua_config"]["apt_news_url"] == "https://example.com/apt-news"
         assert config["ua_config"]["vulnerability_data_url_prefix"] == "https://example.com/cve"
 
     def test_ua_config_parent_removed_when_empty(self, harness, mocks, mock_uaclient_config):
         """If all nested keys are removed, the ua_config parent key is also removed."""
-        harness.update_config({
-            "apt_news_url": "https://news",
-            "vulnerability_data_url_prefix": "https://vuln"
-        })
-        
+        harness.update_config(
+            {"apt_news_url": "https://news", "vulnerability_data_url_prefix": "https://vuln"}
+        )
+
         # Remove both
-        harness.update_config({
-            "apt_news_url": "",
-            "vulnerability_data_url_prefix": ""
-        })
+        harness.update_config({"apt_news_url": "", "vulnerability_data_url_prefix": ""})
 
         with open(mock_uaclient_config) as f:
             config = yaml.safe_load(f)
@@ -1013,7 +1009,7 @@ class TestUpdateConfiguration:
         assert config["security_url"] == new_url
         assert existing_url not in content
         assert "ua_config" not in config
-        
+
     def test_update_configuration_empty_dict(self, mock_uaclient_config):
         """Test that passing an empty dict doesn't break anything."""
         update_configuration({})
@@ -1025,24 +1021,24 @@ class TestUpdateConfiguration:
         assert config["data_dir"] == "/var/lib/ubuntu-advantage"
 
     def test_update_configuration_nested_keys(self, mock_uaclient_config):
-            """Test that specific keys are correctly nested under ua_config."""
-            updates = {
-                "apt_news_url": "https://news.local",
-                "vulnerability_data_url_prefix": "https://vuln.local",
-                "contract_url": "https://contracts.local"  # A flat key for comparison
-            }
-            
-            update_configuration(updates)
+        """Test that specific keys are correctly nested under ua_config."""
+        updates = {
+            "apt_news_url": "https://news.local",
+            "vulnerability_data_url_prefix": "https://vuln.local",
+            "contract_url": "https://contracts.local",  # A flat key for comparison
+        }
 
-            with open(mock_uaclient_config) as f:
-                config = yaml.safe_load(f)
+        update_configuration(updates)
 
-            # Check nesting
-            assert config["ua_config"]["apt_news_url"] == "https://news.local"
-            assert config["ua_config"]["vulnerability_data_url_prefix"] == "https://vuln.local"
-            
-            # Check that flat keys stayed flat
-            assert config["contract_url"] == "https://contracts.local"
+        with open(mock_uaclient_config) as f:
+            config = yaml.safe_load(f)
+
+        # Check nesting
+        assert config["ua_config"]["apt_news_url"] == "https://news.local"
+        assert config["ua_config"]["vulnerability_data_url_prefix"] == "https://vuln.local"
+
+        # Check that flat keys stayed flat
+        assert config["contract_url"] == "https://contracts.local"
 
     def test_update_configuration_empty_ua_config_cleanup(self, mock_uaclient_config):
         """Test that update_configuration doesn't leave an empty ua_config block."""
@@ -1064,9 +1060,7 @@ class TestUpdateConfiguration:
         assert config["ua_config"]["apt_news_url"] == "https://example.com/apt-news"
 
         # Now update vulnerability_data_url_prefix
-        update_configuration(
-            {"vulnerability_data_url_prefix": "https://example.com/cve-data"}
-        )
+        update_configuration({"vulnerability_data_url_prefix": "https://example.com/cve-data"})
 
         with open(mock_uaclient_config) as f:
             config = yaml.safe_load(f)
@@ -1138,10 +1132,9 @@ class TestRemoveConfiguration:
 
     def test_remove_configuration_mixed_keys(self, mock_uaclient_config):
         """Test removing a mix of flat and nested keys at once."""
-        update_configuration({
-            "contract_url": "https://contracts.local",
-            "apt_news_url": "https://news.local"
-        })
+        update_configuration(
+            {"contract_url": "https://contracts.local", "apt_news_url": "https://news.local"}
+        )
 
         remove_configuration(["contract_url", "apt_news_url"])
 

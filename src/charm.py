@@ -33,6 +33,7 @@ NESTED_CONFIG_KEYS = [
     "vulnerability_data_url_prefix",
 ]
 
+
 def install_ppa(ppa, env):
     """Install specified ppa."""
     subprocess.check_call(["add-apt-repository", "--yes", ppa], env=env)
@@ -47,7 +48,7 @@ def update_configuration(config_updates):
     """Write configuration values to the uaclient configuration file with proper nesting."""
     with open(PRO_CONFIG_FILE, "r+") as f:
         client_config = yaml.safe_load(f) or {}
-        
+
         # Ensure the nested dictionary exists if we need it
         if "ua_config" not in client_config:
             client_config["ua_config"] = {}
@@ -57,7 +58,7 @@ def update_configuration(config_updates):
                 client_config["ua_config"][key] = value
             else:
                 client_config[key] = value
-                
+
         # Clean up empty ua_config if it was created but not used
         if not client_config["ua_config"]:
             client_config.pop("ua_config")
@@ -71,7 +72,7 @@ def remove_configuration(config_keys):
     """Remove configuration keys, handling both flat and nested locations."""
     with open(PRO_CONFIG_FILE, "r+") as f:
         client_config = yaml.safe_load(f) or {}
-        
+
         for key in config_keys:
             if key in NESTED_CONFIG_KEYS and "ua_config" in client_config:
                 client_config["ua_config"].pop(key, None)
@@ -431,7 +432,9 @@ class UbuntuAdvantageCharm(CharmBase):
         config_changed = old_vulnerability_data_url_prefix != vulnerability_data_url_prefix
         if config_changed:
             if vulnerability_data_url_prefix:
-                update_configuration({"vulnerability_data_url_prefix": vulnerability_data_url_prefix})
+                update_configuration(
+                    {"vulnerability_data_url_prefix": vulnerability_data_url_prefix}
+                )
             else:
                 remove_configuration(["vulnerability_data_url_prefix"])
             self._state.vulnerability_data_url_prefix = vulnerability_data_url_prefix
