@@ -419,7 +419,7 @@ class TestCharm(TestCase):
         assert "security_url: https://offline.ubuntu.com/security" in written
 
     def test_config_changed_vulnerability_data_url_prefix(self):
-        """If the vulnerability_data_url_prefix is set to a new value, update it under ua_config."""
+        """If the vulnerability_data_url_prefix is set to a new value, update it."""
         new_url = "https://example.com/cve-data"
         self.harness.update_config({"vulnerability_data_url_prefix": new_url})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
@@ -429,7 +429,7 @@ class TestCharm(TestCase):
         assert "ua_config:" in written
 
     def test_config_changed_apt_news_url(self):
-        """If the apt_news_url is set to a new value, update it under ua_config."""
+        """If the apt_news_url is set to a new value, update it."""
         new_url = "https://example.com/apt-news"
         self.harness.update_config({"apt_news_url": new_url})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
@@ -477,14 +477,12 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.staging.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
+        expected = dedent("""\
             contract_url: https://contracts.staging.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """
-        )
+        """)
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
         self.mocks["check_call"].assert_has_calls(self._add_ua_proxy_setup_calls([]))
@@ -524,14 +522,12 @@ class TestCharm(TestCase):
         self.harness.update_config({"contract_url": "https://contracts.canonical.com"})
         self.mocks["open"].assert_called_with("/etc/ubuntu-advantage/uaclient.conf", "r+")
         handle = self.mocks["open"]()
-        expected = dedent(
-            """\
+        expected = dedent("""\
             contract_url: https://contracts.canonical.com
             data_dir: /var/lib/ubuntu-advantage
             log_file: /var/log/ubuntu-advantage.log
             log_level: debug
-        """
-        )
+        """)
         assert m_get_status_output.call_count == 2
         self.assertEqual(_written(handle), expected)
         handle.truncate.assert_called_once()
