@@ -278,6 +278,8 @@ class UbuntuAdvantageCharm(CharmBase):
             livepatch_installed=False,
             hashed_livepatch_token=None,
             security_url="",
+            apt_news_url=None,
+            vulnerability_data_url_prefix=None,
         )
 
         self.framework.observe(self.on.config_changed, self.config_changed)
@@ -404,33 +406,6 @@ class UbuntuAdvantageCharm(CharmBase):
                 remove_configuration(["security_url"])
             self._state.security_url = security_url
 
-    def _configure_apt_news_url(self):
-        """Configure the apt_news_url for the ubuntu-advantage client."""
-        config_key = "apt_news_url"
-        url = self.config.get(config_key, "").strip()
-        if url:
-            logger.info("Setting %s to %s", config_key, url)
-            subprocess.check_call(
-                ["ubuntu-advantage", "config", "set", "{}={}".format(config_key, url)]
-            )
-        else:
-            logger.info("Unsetting %s", config_key)
-            # We use 'unset' to revert to default behavior if the config is empty
-            subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
-
-    def _configure_vulnerability_data_url_prefix(self):
-        """Configure the vulnerability_data_url_prefix for the ubuntu-advantage client."""
-        config_key = "vulnerability_data_url_prefix"
-        url = self.config.get(config_key, "").strip()
-        if url:
-            logger.info("Setting %s to %s", config_key, url)
-            subprocess.check_call(
-                ["ubuntu-advantage", "config", "set", "{}={}".format(config_key, url)]
-            )
-        else:
-            logger.info("Unsetting %s", config_key)
-            subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
-
     def _handle_subscription_state(self):
         """Handle uaclient configuration and subscription attachment."""
         token = self.config.get("token", "").strip()
@@ -500,6 +475,44 @@ class UbuntuAdvantageCharm(CharmBase):
                         config_key,
                     ]
                 )
+    
+    def _configure_apt_news_url(self):
+        """Configure the apt_news_url for the ubuntu-advantage client."""
+        config_key = "apt_news_url"
+        # Normalize the URL: if it's empty/None, make it an empty string
+        url = (self.config.get(config_key) or "").strip()
+        # Normalize stored state: if it's None, treat as empty string
+        current_state = self._state.apt_news_url or ""
+
+        if url != current_state:
+            if url:
+                logger.info("Setting %s to %s", config_key, url)
+                subprocess.check_call(
+                    ["ubuntu-advantage", "config", "set", "{}={}".format(config_key, url)]
+                )
+            else:
+                logger.info("Unsetting %s", config_key)
+                subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
+            
+            self._state.apt_news_url = url
+
+    def _configure_vulnerability_data_url_prefix(self):
+        """Configure the vulnerability_data_url_prefix for the ubuntu-advantage client."""
+        config_key = "vulnerability_data_url_prefix"
+        url = (self.config.get(config_key) or "").strip()
+        current_state = self._state.vulnerability_data_url_prefix or ""
+
+        if url != current_state:
+            if url:
+                logger.info("Setting %s to %s", config_key, url)
+                subprocess.check_call(
+                    ["ubuntu-advantage", "config", "set", "{}={}".format(config_key, url)]
+                )
+            else:
+                logger.info("Unsetting %s", config_key)
+                subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
+                
+            self._state.vulnerability_data_url_prefix = url
 
 
 if __name__ == "__main__":  # pragma: nocover
