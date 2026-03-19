@@ -321,6 +321,8 @@ class UbuntuAdvantageCharm(CharmBase):
         self._handle_package_state()
         self._configure_livepatch()
         self._configure_security_url()
+        self._configure_apt_news_url()
+        self._configure_vulnerability_data_url_prefix()
         if isinstance(self.unit.status, BlockedStatus):
             return
         self._handle_subscription_state()
@@ -401,6 +403,33 @@ class UbuntuAdvantageCharm(CharmBase):
             else:
                 remove_configuration(["security_url"])
             self._state.security_url = security_url
+
+    def _configure_apt_news_url(self):
+        """Configure the apt_news_url for the ubuntu-advantage client."""
+        config_key = "apt_news_url"
+        url = self.config.get(config_key, "").strip()
+        if url:
+            logger.info("Setting %s to %s", config_key, url)
+            subprocess.check_call(
+                ["ubuntu-advantage", "config", "set", "{}={}".format(config_key, url)]
+            )
+        else:
+            logger.info("Unsetting %s", config_key)
+            # We use 'unset' to revert to default behavior if the config is empty
+            subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
+
+    def _configure_vulnerability_data_url_prefix(self):
+        """Configure the vulnerability_data_url_prefix for the ubuntu-advantage client."""
+        config_key = "vulnerability_data_url_prefix"
+        url = self.config.get(config_key, "").strip()
+        if url:
+            logger.info("Setting %s to %s", config_key, url)
+            subprocess.check_call(
+                ["ubuntu-advantage", "config", "set", "{}={}".format(config_key, url)]
+            )
+        else:
+            logger.info("Unsetting %s", config_key)
+            subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
 
     def _handle_subscription_state(self):
         """Handle uaclient configuration and subscription attachment."""
