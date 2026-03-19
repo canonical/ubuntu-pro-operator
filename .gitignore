@@ -8,5 +8,6 @@ __pycache__/
 .idea
 .vscode/
 .ropeproject
+coverage.xml
 
 /charmcraft.yaml
