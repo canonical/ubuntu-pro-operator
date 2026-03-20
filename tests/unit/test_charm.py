@@ -88,6 +88,8 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm.config.get("ppa"), "")
         self.assertEqual(self.harness.charm.config.get("token"), "")
         self.assertEqual(self.harness.charm.config.get("security_url"), "")
+        self.assertEqual(self.harness.charm.config.get("apt_news_url"), "")
+        self.assertEqual(self.harness.charm.config.get("vulnerability_data_url_prefix"), "")
 
     def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
@@ -558,6 +560,53 @@ class TestCharm(TestCase):
             ]
         )
 
+    def test_config_changed_set_and_unset_apt_news_url(self):
+        """Verify apt_news_url can be set and then unset."""
+        test_url = "https://news.example.com"
+        
+        self.harness.update_config({"apt_news_url": test_url})
+        self.mocks["check_call"].assert_any_call(
+            ["ubuntu-advantage", "config", "set", f"apt_news_url={test_url}"]
+        )
+        self.assertEqual(self.harness.charm._state.apt_news_url, test_url)
+
+        self.mocks["check_call"].reset_mock()
+        self.harness.update_config({"apt_news_url": test_url})
+        
+        for call_args in self.mocks["check_call"].call_args_list:
+            self.assertNotIn("apt_news_url", str(call_args[0][0]))
+
+        self.harness.update_config({"apt_news_url": ""})
+        self.mocks["check_call"].assert_any_call(
+            ["ubuntu-advantage", "config", "unset", "apt_news_url"]
+        )
+        self.assertEqual(self.harness.charm._state.apt_news_url, "")
+
+    def test_config_changed_set_and_unset_vulnerability_data_url_prefix(self):
+        """Verify vulnerability_data_url_prefix can be set and then unset."""
+        test_url = "https://vun-data.example.com/v1"
+        
+        # 1. Set the URL
+        self.harness.update_config({"vulnerability_data_url_prefix": test_url})
+        self.mocks["check_call"].assert_any_call(
+            ["ubuntu-advantage", "config", "set", f"vulnerability_data_url_prefix={test_url}"]
+        )
+        self.assertEqual(self.harness.charm._state.vulnerability_data_url_prefix, test_url)
+
+        # 2. Update to same value (Idempotency check)
+        self.mocks["check_call"].reset_mock()
+        self.harness.update_config({"vulnerability_data_url_prefix": test_url})
+        
+        for call_args in self.mocks["check_call"].call_args_list:
+            self.assertNotIn("vulnerability_data_url_prefix", str(call_args[0][0]))
+
+        # 3. Unset the URL
+        self.harness.update_config({"vulnerability_data_url_prefix": ""})
+        self.mocks["check_call"].assert_any_call(
+            ["ubuntu-advantage", "config", "unset", "vulnerability_data_url_prefix"]
+        )
+        self.assertEqual(self.harness.charm._state.vulnerability_data_url_prefix, "")
+
     def test_config_changed_set_ssl_cert_file_override(self):
         # Set proxy override once.
         self.harness.update_config(
@@ -730,7 +779,6 @@ class TestCharm(TestCase):
             "ubuntu-advantage-tools", update_cache=True
         )
 
-
 @pytest.fixture
 def harness():
     """Glue code.
@@ -820,6 +868,8 @@ class TestOnConfigChanged:
 
         with open(mock_uaclient_config) as f:
             assert "security_url" not in yaml.safe_load(f)
+    
+    
 
 
 @pytest.fixture
