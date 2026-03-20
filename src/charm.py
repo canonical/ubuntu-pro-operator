@@ -475,7 +475,7 @@ class UbuntuAdvantageCharm(CharmBase):
                         config_key,
                     ]
                 )
-    
+
     def _configure_apt_news_url(self):
         """Configure the apt_news_url for the ubuntu-advantage client."""
         config_key = "apt_news_url"
@@ -491,7 +491,7 @@ class UbuntuAdvantageCharm(CharmBase):
             else:
                 logger.info("Unsetting %s", config_key)
                 subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
-            
+
             self._state.apt_news_url = url
 
     def _configure_vulnerability_data_url_prefix(self):
@@ -509,7 +509,7 @@ class UbuntuAdvantageCharm(CharmBase):
             else:
                 logger.info("Unsetting %s", config_key)
                 subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
-                
+
             self._state.vulnerability_data_url_prefix = url
 
 

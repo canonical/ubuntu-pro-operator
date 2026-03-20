@@ -586,7 +586,7 @@ class TestCharm(TestCase):
     def test_config_changed_set_and_unset_vulnerability_data_url_prefix(self):
         """Verify vulnerability_data_url_prefix can be set and then unset."""
         test_url = "https://vun-data.example.com/v1"
-        
+
         # Set vulnerability data url prefix once
         self.harness.update_config({"vulnerability_data_url_prefix": test_url})
         self.mocks["check_call"].assert_any_call(
@@ -597,7 +597,7 @@ class TestCharm(TestCase):
         # Set vulnerability data url prefix again
         self.mocks["check_call"].reset_mock()
         self.harness.update_config({"vulnerability_data_url_prefix": test_url})
-        
+
         for call_args in self.mocks["check_call"].call_args_list:
             self.assertNotIn("vulnerability_data_url_prefix", str(call_args[0][0]))
 
@@ -780,6 +780,7 @@ class TestCharm(TestCase):
             "ubuntu-advantage-tools", update_cache=True
         )
 
+
 @pytest.fixture
 def harness():
     """Glue code.
@@ -869,8 +870,6 @@ class TestOnConfigChanged:
 
         with open(mock_uaclient_config) as f:
             assert "security_url" not in yaml.safe_load(f)
-    
-    
 
 
 @pytest.fixture
