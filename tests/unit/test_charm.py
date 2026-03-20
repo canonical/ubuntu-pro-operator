@@ -570,7 +570,7 @@ class TestCharm(TestCase):
         )
         self.assertEqual(self.harness.charm._state.apt_news_url, test_url)
 
-        # Set apt news url again
+        # Set apt news url again using the same value
         self.mocks["check_call"].reset_mock()
         self.harness.update_config({"apt_news_url": test_url})
         for call_args in self.mocks["check_call"].call_args_list:
@@ -594,7 +594,7 @@ class TestCharm(TestCase):
         )
         self.assertEqual(self.harness.charm._state.vulnerability_data_url_prefix, test_url)
 
-        # Set vulnerability data url prefix again
+        # Set vulnerability data url prefix again using the same value
         self.mocks["check_call"].reset_mock()
         self.harness.update_config({"vulnerability_data_url_prefix": test_url})
 

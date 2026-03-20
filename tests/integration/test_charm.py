@@ -205,7 +205,6 @@ async def test_set_apt_news_url(ops_test: OpsTest, apt_news_url: str):
     charm = ops_test.model.applications[CHARM_NAME]
     unit = charm.units[0]
 
-    # Clean the slate first to avoid leakage from previous tests
     await charm.set_config({"apt_news_url": ""})
     await charm.set_config(
         {
@@ -222,11 +221,9 @@ async def test_set_apt_news_url(ops_test: OpsTest, apt_news_url: str):
 
     stdout = action.results.get("stdout", "")
     if apt_news_url:
-        # Check that BOTH the key and the value exist in the output (ignoring separators)
         assert "apt_news_url" in stdout
         assert apt_news_url in stdout
     else:
-        # Ensure the test URL is gone
         assert "https://news.example.com" not in stdout
 
 
@@ -235,7 +232,6 @@ async def test_set_vulnerability_url_prefix(ops_test: OpsTest, vun_prefix: str):
     charm = ops_test.model.applications[CHARM_NAME]
     unit = charm.units[0]
 
-    # Clean slate
     await charm.set_config({"vulnerability_data_url_prefix": ""})
     await charm.set_config(
         {
