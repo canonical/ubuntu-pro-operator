@@ -198,3 +198,51 @@ async def test_set_security_url(ops_test: OpsTest, security_url: str):
 
     unit = charm.units[0]
     assert unit.workload_status == ActiveStatus.name
+
+@pytest.mark.parametrize("apt_news_url", ["", "https://news.example.com"])
+async def test_set_apt_news_url(ops_test: OpsTest, apt_news_url: str):
+    charm = ops_test.model.applications[CHARM_NAME]
+    unit = charm.units[0]
+
+    # Clean the slate first to avoid leakage from previous tests
+    await charm.set_config({"apt_news_url": "", "vulnerability_data_url_prefix": ""})
+    await charm.set_config({
+        "apt_news_url": apt_news_url,
+        "token": TEST_TOKEN,
+    })
+    await ops_test.model.wait_for_idle(status="active", timeout=600)
+
+    action = await unit.run("pro config show")
+    await action.wait()
+    
+    stdout = action.results.get("stdout", "")
+    if apt_news_url:
+        # Check that BOTH the key and the value exist in the output (ignoring separators)
+        assert "apt_news_url" in stdout
+        assert apt_news_url in stdout
+    else:
+        # Ensure the test URL is gone
+        assert "https://news.example.com" not in stdout
+
+@pytest.mark.parametrize("vun_prefix", ["", "https://vun.example.com"])
+async def test_set_vulnerability_url_prefix(ops_test: OpsTest, vun_prefix: str):
+    charm = ops_test.model.applications[CHARM_NAME]
+    unit = charm.units[0]
+
+    # Clean slate
+    await charm.set_config({"apt_news_url": "", "vulnerability_data_url_prefix": ""})
+    await charm.set_config({
+        "vulnerability_data_url_prefix": vun_prefix,
+        "token": TEST_TOKEN,
+    })
+    await ops_test.model.wait_for_idle(status="active", timeout=600)
+
+    action = await unit.run("pro config show")
+    await action.wait()
+
+    stdout = action.results.get("stdout", "")
+    if vun_prefix:
+        assert "vulnerability_data_url_prefix" in stdout
+        assert vun_prefix in stdout
+    else:
+        assert "https://vun.example.com" not in stdout

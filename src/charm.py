@@ -479,9 +479,7 @@ class UbuntuAdvantageCharm(CharmBase):
     def _configure_apt_news_url(self):
         """Configure the apt_news_url for the ubuntu-advantage client."""
         config_key = "apt_news_url"
-        # Normalize the URL: if it's empty/None, make it an empty string
         url = (self.config.get(config_key) or "").strip()
-        # Normalize stored state: if it's None, treat as empty string
         current_state = self._state.apt_news_url or ""
 
         if url != current_state:

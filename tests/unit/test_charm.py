@@ -563,19 +563,20 @@ class TestCharm(TestCase):
     def test_config_changed_set_and_unset_apt_news_url(self):
         """Verify apt_news_url can be set and then unset."""
         test_url = "https://news.example.com"
-        
+        # Set apt news url once
         self.harness.update_config({"apt_news_url": test_url})
         self.mocks["check_call"].assert_any_call(
             ["ubuntu-advantage", "config", "set", f"apt_news_url={test_url}"]
         )
         self.assertEqual(self.harness.charm._state.apt_news_url, test_url)
 
+        # Set apt news url again
         self.mocks["check_call"].reset_mock()
         self.harness.update_config({"apt_news_url": test_url})
-        
         for call_args in self.mocks["check_call"].call_args_list:
             self.assertNotIn("apt_news_url", str(call_args[0][0]))
 
+        # Unset apt news url
         self.harness.update_config({"apt_news_url": ""})
         self.mocks["check_call"].assert_any_call(
             ["ubuntu-advantage", "config", "unset", "apt_news_url"]
@@ -586,21 +587,21 @@ class TestCharm(TestCase):
         """Verify vulnerability_data_url_prefix can be set and then unset."""
         test_url = "https://vun-data.example.com/v1"
         
-        # 1. Set the URL
+        # Set vulnerability data url prefix once
         self.harness.update_config({"vulnerability_data_url_prefix": test_url})
         self.mocks["check_call"].assert_any_call(
             ["ubuntu-advantage", "config", "set", f"vulnerability_data_url_prefix={test_url}"]
         )
         self.assertEqual(self.harness.charm._state.vulnerability_data_url_prefix, test_url)
 
-        # 2. Update to same value (Idempotency check)
+        # Set vulnerability data url prefix again
         self.mocks["check_call"].reset_mock()
         self.harness.update_config({"vulnerability_data_url_prefix": test_url})
         
         for call_args in self.mocks["check_call"].call_args_list:
             self.assertNotIn("vulnerability_data_url_prefix", str(call_args[0][0]))
 
-        # 3. Unset the URL
+        # Unset vulnerability data url prefix
         self.harness.update_config({"vulnerability_data_url_prefix": ""})
         self.mocks["check_call"].assert_any_call(
             ["ubuntu-advantage", "config", "unset", "vulnerability_data_url_prefix"]
