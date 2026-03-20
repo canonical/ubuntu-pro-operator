@@ -207,6 +207,8 @@ async def test_set_apt_news_url(ops_test: OpsTest, apt_news_url: str):
     # Clean the slate first to avoid leakage from previous tests
     await charm.set_config({"apt_news_url": "", "vulnerability_data_url_prefix": ""})
     await charm.set_config({
+        "livepatch_server_url": "",
+        "livepatch_token": "",
         "apt_news_url": apt_news_url,
         "token": TEST_TOKEN,
     })
@@ -232,6 +234,8 @@ async def test_set_vulnerability_url_prefix(ops_test: OpsTest, vun_prefix: str):
     # Clean slate
     await charm.set_config({"apt_news_url": "", "vulnerability_data_url_prefix": ""})
     await charm.set_config({
+        "livepatch_server_url": "",
+        "livepatch_token": "",
         "vulnerability_data_url_prefix": vun_prefix,
         "token": TEST_TOKEN,
     })
