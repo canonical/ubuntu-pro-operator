@@ -252,4 +252,3 @@ async def test_set_vulnerability_url_prefix(ops_test: OpsTest, vun_prefix: str):
         assert vun_prefix in stdout
     else:
         assert "https://vun.example.com" not in stdout
-        
