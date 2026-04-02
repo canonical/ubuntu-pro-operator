@@ -560,54 +560,44 @@ class TestCharm(TestCase):
             ]
         )
 
-    def test_config_changed_set_and_unset_apt_news_url(self):
-        """Verify apt_news_url can be set and then unset."""
-        test_url = "https://news.example.com"
-        # Set apt news url once
-        self.harness.update_config({"apt_news_url": test_url})
+    def _assert_ua_config_variable_lifecycle(self, config_key, test_value):
+        """Helper to test the set/set-identical/unset lifecycle of a UA config variable."""
+        # 1. Set the variable
+        self.harness.update_config({config_key: test_value})
         self.mocks["check_call"].assert_any_call(
-            ["ubuntu-advantage", "config", "set", f"apt_news_url={test_url}"]
+            ["ubuntu-advantage", "config", "set", f"{config_key}={test_value}"]
         )
-        self.assertEqual(self.harness.charm._state.apt_news_url, test_url)
+        self.assertEqual(getattr(self.harness.charm._state, config_key), test_value)
 
-        # Set apt news url again using the same value
+        # 2. Set again with the same value (should be ignored by StoredState guard)
         self.mocks["check_call"].reset_mock()
-        self.harness.update_config({"apt_news_url": test_url})
+        self.harness.update_config({config_key: test_value})
+        # Check that no 'config set' call was made for this key
         for call_args in self.mocks["check_call"].call_args_list:
-            self.assertNotIn("apt_news_url", str(call_args[0][0]))
+            self.assertNotIn(config_key, str(call_args[0][0]))
 
-        # Unset apt news url
-        self.harness.update_config({"apt_news_url": ""})
+        # 3. Unset the variable
+        self.harness.update_config({config_key: ""})
         self.mocks["check_call"].assert_any_call(
-            ["ubuntu-advantage", "config", "unset", "apt_news_url"]
+            ["ubuntu-advantage", "config", "unset", config_key]
         )
-        self.assertEqual(self.harness.charm._state.apt_news_url, "")
+        # StoredState handles empty strings as empty strings
+        self.assertEqual(getattr(self.harness.charm._state, config_key), "")
+
+    def test_config_changed_set_and_unset_apt_news_url(self):
+        """Verify apt_news_url lifecycle."""
+        self._assert_ua_config_variable_lifecycle(
+            config_key="apt_news_url", 
+            test_value="https://news.example.com"
+        )
 
     def test_config_changed_set_and_unset_vulnerability_data_url_prefix(self):
-        """Verify vulnerability_data_url_prefix can be set and then unset."""
-        test_url = "https://vun-data.example.com/v1"
-
-        # Set vulnerability data url prefix once
-        self.harness.update_config({"vulnerability_data_url_prefix": test_url})
-        self.mocks["check_call"].assert_any_call(
-            ["ubuntu-advantage", "config", "set", f"vulnerability_data_url_prefix={test_url}"]
+        """Verify vulnerability_data_url_prefix lifecycle."""
+        self._assert_ua_config_variable_lifecycle(
+            config_key="vulnerability_data_url_prefix", 
+            test_value="https://vun-data.example.com/v1"
         )
-        self.assertEqual(self.harness.charm._state.vulnerability_data_url_prefix, test_url)
-
-        # Set vulnerability data url prefix again using the same value
-        self.mocks["check_call"].reset_mock()
-        self.harness.update_config({"vulnerability_data_url_prefix": test_url})
-
-        for call_args in self.mocks["check_call"].call_args_list:
-            self.assertNotIn("vulnerability_data_url_prefix", str(call_args[0][0]))
-
-        # Unset vulnerability data url prefix
-        self.harness.update_config({"vulnerability_data_url_prefix": ""})
-        self.mocks["check_call"].assert_any_call(
-            ["ubuntu-advantage", "config", "unset", "vulnerability_data_url_prefix"]
-        )
-        self.assertEqual(self.harness.charm._state.vulnerability_data_url_prefix, "")
-
+        
     def test_config_changed_set_ssl_cert_file_override(self):
         # Set proxy override once.
         self.harness.update_config(
