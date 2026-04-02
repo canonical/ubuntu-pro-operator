@@ -587,17 +587,16 @@ class TestCharm(TestCase):
     def test_config_changed_set_and_unset_apt_news_url(self):
         """Verify apt_news_url lifecycle."""
         self._assert_ua_config_variable_lifecycle(
-            config_key="apt_news_url", 
-            test_value="https://news.example.com"
+            config_key="apt_news_url", test_value="https://news.example.com"
         )
 
     def test_config_changed_set_and_unset_vulnerability_data_url_prefix(self):
         """Verify vulnerability_data_url_prefix lifecycle."""
         self._assert_ua_config_variable_lifecycle(
-            config_key="vulnerability_data_url_prefix", 
-            test_value="https://vun-data.example.com/v1"
+            config_key="vulnerability_data_url_prefix",
+            test_value="https://vun-data.example.com/v1",
         )
-        
+
     def test_config_changed_set_ssl_cert_file_override(self):
         # Set proxy override once.
         self.harness.update_config(

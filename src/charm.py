@@ -491,9 +491,7 @@ class UbuntuAdvantageCharm(CharmBase):
 
         if url:
             logger.info("Setting %s to %s", config_key, url)
-            subprocess.check_call(
-                ["ubuntu-advantage", "config", "set", f"{config_key}={url}"]
-            )
+            subprocess.check_call(["ubuntu-advantage", "config", "set", f"{config_key}={url}"])
         else:
             logger.info("Unsetting %s", config_key)
             subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
