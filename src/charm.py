@@ -476,41 +476,38 @@ class UbuntuAdvantageCharm(CharmBase):
                     ]
                 )
 
+    def _update_ua_config_variable(self, config_key):
+        """Helper to sync a UA configuration variable with stored state.
+
+        Args:
+            config_key: The string key used in config, state, and the UA CLI.
+        """
+        # Get new value from config and current value from state
+        url = (self.config.get(config_key) or "").strip()
+        current_state = getattr(self._state, config_key) or ""
+
+        if url == current_state:
+            return
+
+        if url:
+            logger.info("Setting %s to %s", config_key, url)
+            subprocess.check_call(
+                ["ubuntu-advantage", "config", "set", f"{config_key}={url}"]
+            )
+        else:
+            logger.info("Unsetting %s", config_key)
+            subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
+
+        # Update the stored state dynamically
+        setattr(self._state, config_key, url)
+
     def _configure_apt_news_url(self):
         """Configure the apt_news_url for the ubuntu-advantage client."""
-        config_key = "apt_news_url"
-        url = (self.config.get(config_key) or "").strip()
-        current_state = self._state.apt_news_url or ""
-
-        if url != current_state:
-            if url:
-                logger.info("Setting %s to %s", config_key, url)
-                subprocess.check_call(
-                    ["ubuntu-advantage", "config", "set", "{}={}".format(config_key, url)]
-                )
-            else:
-                logger.info("Unsetting %s", config_key)
-                subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
-
-            self._state.apt_news_url = url
+        self._update_ua_config_variable("apt_news_url")
 
     def _configure_vulnerability_data_url_prefix(self):
         """Configure the vulnerability_data_url_prefix for the ubuntu-advantage client."""
-        config_key = "vulnerability_data_url_prefix"
-        url = (self.config.get(config_key) or "").strip()
-        current_state = self._state.vulnerability_data_url_prefix or ""
-
-        if url != current_state:
-            if url:
-                logger.info("Setting %s to %s", config_key, url)
-                subprocess.check_call(
-                    ["ubuntu-advantage", "config", "set", "{}={}".format(config_key, url)]
-                )
-            else:
-                logger.info("Unsetting %s", config_key)
-                subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
-
-            self._state.vulnerability_data_url_prefix = url
+        self._update_ua_config_variable("vulnerability_data_url_prefix")
 
 
 if __name__ == "__main__":  # pragma: nocover
