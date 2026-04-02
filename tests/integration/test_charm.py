@@ -200,55 +200,36 @@ async def test_set_security_url(ops_test: OpsTest, security_url: str):
     assert unit.workload_status == ActiveStatus.name
 
 
-@pytest.mark.parametrize("apt_news_url", ["", "https://news.example.com"])
-async def test_set_apt_news_url(ops_test: OpsTest, apt_news_url: str):
+@pytest.mark.parametrize(
+    "config_key, test_value",
+    [
+        ("apt_news_url", "https://news.example.com"),
+        ("vulnerability_data_url_prefix", "https://vun.example.com"),
+    ],
+)
+async def test_ua_url_configs(ops_test: OpsTest, config_key: str, test_value: str):
+    """Verify that URL-based configs can be set and unset on the live unit."""
     charm = ops_test.model.applications[CHARM_NAME]
     unit = charm.units[0]
 
-    await charm.set_config({"apt_news_url": ""})
-    await charm.set_config(
-        {
-            "livepatch_server_url": "",
-            "livepatch_token": "",
-            "apt_news_url": apt_news_url,
-            "token": TEST_TOKEN,
-        }
-    )
+    # 1. Setup: Ensure clean state and active status
+    await charm.set_config({config_key: "", "token": TEST_TOKEN})
+    await ops_test.model.wait_for_idle(status="active")
+
+    # 2. Set Value: Update config and verify CLI output
+    await charm.set_config({config_key: test_value})
     await ops_test.model.wait_for_idle(status="active", timeout=600)
 
     action = await unit.run("pro config show")
     await action.wait()
-
     stdout = action.results.get("stdout", "")
-    if apt_news_url:
-        assert "apt_news_url" in stdout
-        assert apt_news_url in stdout
-    else:
-        assert "https://news.example.com" not in stdout
+    assert config_key in stdout
+    assert test_value in stdout
 
-
-@pytest.mark.parametrize("vun_prefix", ["", "https://vun.example.com"])
-async def test_set_vulnerability_url_prefix(ops_test: OpsTest, vun_prefix: str):
-    charm = ops_test.model.applications[CHARM_NAME]
-    unit = charm.units[0]
-
-    await charm.set_config({"vulnerability_data_url_prefix": ""})
-    await charm.set_config(
-        {
-            "livepatch_server_url": "",
-            "livepatch_token": "",
-            "vulnerability_data_url_prefix": vun_prefix,
-            "token": TEST_TOKEN,
-        }
-    )
-    await ops_test.model.wait_for_idle(status="active", timeout=600)
+    # 3. Unset Value: Clear config and verify it is removed from CLI
+    await charm.set_config({config_key: ""})
+    await ops_test.model.wait_for_idle(status="active")
 
     action = await unit.run("pro config show")
     await action.wait()
-
-    stdout = action.results.get("stdout", "")
-    if vun_prefix:
-        assert "vulnerability_data_url_prefix" in stdout
-        assert vun_prefix in stdout
-    else:
-        assert "https://vun.example.com" not in stdout
+    assert test_value not in action.results.get("stdout", "")
