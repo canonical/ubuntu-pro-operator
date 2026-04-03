@@ -493,10 +493,24 @@ class UbuntuAdvantageCharm(CharmBase):
 
         if new_value:
             logger.info("Setting %s to %s", config_key, new_value)
-            subprocess.check_call(["ubuntu-advantage", "config", "set", f"{config_key}={new_value}"])
+            subprocess.check_call(
+                [
+                    "ubuntu-advantage",
+                    "config",
+                    "set",
+                    "{}={}".format(config_key, new_value),
+                ]
+            )
         else:
             logger.info("Unsetting %s", config_key)
-            subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
+            subprocess.check_call(
+                [
+                    "ubuntu-advantage",
+                    "config",
+                    "unset",
+                    config_key,
+                ]
+            )
 
         return new_value
 
