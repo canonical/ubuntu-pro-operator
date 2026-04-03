@@ -487,8 +487,11 @@ class UbuntuAdvantageCharm(CharmBase):
             The new value to be stored in StoredState.
         """
         new_value = (self.config.get(config_key) or "").strip()
+    
+        # Normalize current_value so None is treated as ""
+        normalized_current = current_value or ""
 
-        if new_value == current_value:
+        if new_value == normalized_current:
             return current_value
 
         if new_value:
