@@ -476,36 +476,41 @@ class UbuntuAdvantageCharm(CharmBase):
                     ]
                 )
 
-    def _update_ua_config_variable(self, config_key):
-        """Helper to sync a UA configuration variable with stored state.
+    def _update_ua_config_variable(self, config_key, current_value):
+        """Update a UA configuration variable via CLI.
 
         Args:
-            config_key: The string key used in config, state, and the UA CLI.
+            config_key: The string key used in the UA CLI.
+            current_value: The value currently stored in StoredState.
+
+        Returns:
+            The new value to be stored in StoredState.
         """
-        # Get new value from config and current value from state
-        url = (self.config.get(config_key) or "").strip()
-        current_state = getattr(self._state, config_key) or ""
+        new_value = (self.config.get(config_key) or "").strip()
 
-        if url == current_state:
-            return
+        if new_value == current_value:
+            return current_value
 
-        if url:
-            logger.info("Setting %s to %s", config_key, url)
-            subprocess.check_call(["ubuntu-advantage", "config", "set", f"{config_key}={url}"])
+        if new_value:
+            logger.info("Setting %s to %s", config_key, new_value)
+            subprocess.check_call(["ubuntu-advantage", "config", "set", f"{config_key}={new_value}"])
         else:
             logger.info("Unsetting %s", config_key)
             subprocess.check_call(["ubuntu-advantage", "config", "unset", config_key])
 
-        # Update the stored state dynamically
-        setattr(self._state, config_key, url)
+        return new_value
 
     def _configure_apt_news_url(self):
         """Configure the apt_news_url for the ubuntu-advantage client."""
-        self._update_ua_config_variable("apt_news_url")
+        self._state.apt_news_url = self._update_ua_config_variable(
+            "apt_news_url", self._state.apt_news_url
+        )
 
     def _configure_vulnerability_data_url_prefix(self):
         """Configure the vulnerability_data_url_prefix for the ubuntu-advantage client."""
-        self._update_ua_config_variable("vulnerability_data_url_prefix")
+        self._state.vulnerability_data_url_prefix = self._update_ua_config_variable(
+            "vulnerability_data_url_prefix", self._state.vulnerability_data_url_prefix
+        )
 
 
 if __name__ == "__main__":  # pragma: nocover
