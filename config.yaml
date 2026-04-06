@@ -57,4 +57,4 @@ options:
     type: string
     default: ""
     description: "Custom prefix URL for vulnerability data."
-    
+
