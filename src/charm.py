@@ -278,6 +278,8 @@ class UbuntuAdvantageCharm(CharmBase):
             livepatch_installed=False,
             hashed_livepatch_token=None,
             security_url="",
+            apt_news_url=None,
+            vulnerability_data_url_prefix=None,
         )
 
         self.framework.observe(self.on.config_changed, self.config_changed)
@@ -321,6 +323,8 @@ class UbuntuAdvantageCharm(CharmBase):
         self._handle_package_state()
         self._configure_livepatch()
         self._configure_security_url()
+        self._configure_apt_news_url()
+        self._configure_vulnerability_data_url_prefix()
         if isinstance(self.unit.status, BlockedStatus):
             return
         self._handle_subscription_state()
@@ -471,6 +475,59 @@ class UbuntuAdvantageCharm(CharmBase):
                         config_key,
                     ]
                 )
+
+    def _update_ua_config_variable(self, config_key, current_value):
+        """Update a UA configuration variable via CLI.
+
+        Args:
+            config_key: The string key used in the UA CLI.
+            current_value: The value currently stored in StoredState.
+
+        Returns:
+            The new value to be stored in StoredState.
+        """
+        new_value = (self.config.get(config_key) or "").strip()
+
+        # Normalize current_value so None is treated as ""
+        normalized_current = current_value or ""
+
+        if new_value == normalized_current:
+            return current_value
+
+        if new_value:
+            logger.info("Setting %s to %s", config_key, new_value)
+            subprocess.check_call(
+                [
+                    "ubuntu-advantage",
+                    "config",
+                    "set",
+                    "{}={}".format(config_key, new_value),
+                ]
+            )
+        else:
+            logger.info("Unsetting %s", config_key)
+            subprocess.check_call(
+                [
+                    "ubuntu-advantage",
+                    "config",
+                    "unset",
+                    config_key,
+                ]
+            )
+
+        return new_value
+
+    def _configure_apt_news_url(self):
+        """Configure the apt_news_url for the ubuntu-advantage client."""
+        self._state.apt_news_url = self._update_ua_config_variable(
+            "apt_news_url", self._state.apt_news_url
+        )
+
+    def _configure_vulnerability_data_url_prefix(self):
+        """Configure the vulnerability_data_url_prefix for the ubuntu-advantage client."""
+        self._state.vulnerability_data_url_prefix = self._update_ua_config_variable(
+            "vulnerability_data_url_prefix", self._state.vulnerability_data_url_prefix
+        )
 
 
 if __name__ == "__main__":  # pragma: nocover

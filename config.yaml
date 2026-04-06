@@ -49,3 +49,12 @@ options:
     description:
       The URL from which to receive USN and CVE information. If unset, the default from the Ubuntu Pro client will be used.
     type: string
+  apt_news_url:
+    type: string
+    default: ""
+    description: "Custom URL for APT news fetching."
+  vulnerability_data_url_prefix:
+    type: string
+    default: ""
+    description: "Custom prefix URL for vulnerability data."
+

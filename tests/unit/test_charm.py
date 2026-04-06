@@ -88,6 +88,8 @@ class TestCharm(TestCase):
         self.assertEqual(self.harness.charm.config.get("ppa"), "")
         self.assertEqual(self.harness.charm.config.get("token"), "")
         self.assertEqual(self.harness.charm.config.get("security_url"), "")
+        self.assertEqual(self.harness.charm.config.get("apt_news_url"), "")
+        self.assertEqual(self.harness.charm.config.get("vulnerability_data_url_prefix"), "")
 
     def test_config_changed_ppa_new(self):
         self.harness.update_config({"ppa": "ppa:ua-client/stable"})
@@ -556,6 +558,43 @@ class TestCharm(TestCase):
                 call(["ubuntu-advantage", "config", "unset", "http_proxy"]),
                 call(["ubuntu-advantage", "config", "unset", "https_proxy"]),
             ]
+        )
+
+    def _assert_ua_config_variable_lifecycle(self, config_key, test_value):
+        """Helper to test the set/set-identical/unset lifecycle of a UA config variable."""
+        # 1. Set the variable
+        self.harness.update_config({config_key: test_value})
+        self.mocks["check_call"].assert_any_call(
+            ["ubuntu-advantage", "config", "set", f"{config_key}={test_value}"]
+        )
+        self.assertEqual(getattr(self.harness.charm._state, config_key), test_value)
+
+        # 2. Set again with the same value (should be ignored by StoredState guard)
+        self.mocks["check_call"].reset_mock()
+        self.harness.update_config({config_key: test_value})
+        # Check that no 'config set' call was made for this key
+        for call_args in self.mocks["check_call"].call_args_list:
+            self.assertNotIn(config_key, str(call_args[0][0]))
+
+        # 3. Unset the variable
+        self.harness.update_config({config_key: ""})
+        self.mocks["check_call"].assert_any_call(
+            ["ubuntu-advantage", "config", "unset", config_key]
+        )
+        # StoredState handles empty strings as empty strings
+        self.assertEqual(getattr(self.harness.charm._state, config_key), "")
+
+    def test_config_changed_set_and_unset_apt_news_url(self):
+        """Verify apt_news_url lifecycle."""
+        self._assert_ua_config_variable_lifecycle(
+            config_key="apt_news_url", test_value="https://news.example.com"
+        )
+
+    def test_config_changed_set_and_unset_vulnerability_data_url_prefix(self):
+        """Verify vulnerability_data_url_prefix lifecycle."""
+        self._assert_ua_config_variable_lifecycle(
+            config_key="vulnerability_data_url_prefix",
+            test_value="https://vun-data.example.com/v1",
         )
 
     def test_config_changed_set_ssl_cert_file_override(self):
