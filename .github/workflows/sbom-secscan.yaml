@@ -1,0 +1,26 @@
+name: SBOM and secscan
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 5" # weekly, Fridays
+
+permissions: {}
+
+jobs:
+  scan:
+    name: Secscan
+    runs-on: [self-hosted, self-hosted-linux-amd64-noble-private-endpoint-medium]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+
+      - name: sbomber
+        uses: canonical/sbomber/.github/actions/run@2b11503a3d840abadc50a9c14a7f0cc56e8b8096  # main -- the sbomber-ref input below should match
+        with:
+          manifest: ${{ github.workspace }}/.github/ssdlc/charm-secscan-manifest.yaml
+          artifact-name: secscan-report-upload
+          sbomber-ref: 2b11503a3d840abadc50a9c14a7f0cc56e8b8096  # should match the ref in 'uses' above
