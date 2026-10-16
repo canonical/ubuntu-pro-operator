@@ -16,13 +16,13 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        charm:
-          - name: ubuntu-pro
-            target: ubuntu-pro
-            track: latest/edge
-          - name: ubuntu-pro_noble
-            target: ubuntu-pro_noble
-            track: latest/edge
+        include:
+          # Current multi-base track (24.04 + 26.04) needs charmcraft 4.x.
+          - build-target: ubuntu-pro
+            charmcraft-channel: 4.x/stable
+          # Old track (bases: 16.04-22.04) stays on charmcraft 3.x.
+          - build-target: ubuntu-pro_old
+            charmcraft-channel: 3.x/stable
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,20 +33,18 @@ jobs:
           channel: latest/stable
 
       - name: Install charmcraft
-        run: sudo snap install charmcraft --classic --channel=3.x/stable
+        run: sudo snap install charmcraft --classic --channel=${{ matrix.charmcraft-channel }}
 
-      - name: Build ${{ matrix.charm.name }}
-        run: make ${{ matrix.charm.target }}
+      # A single `charmcraft pack` can produce several .charm files (one per
+      # base), so upload and release every artifact that is produced.
+      - name: Build ${{ matrix.build-target }}
+        run: make ${{ matrix.build-target }}
 
-      - name: Copy charm files to root
+      - name: Upload and release every packed artifact
+        env:
+          CHARMCRAFT_AUTH: ${{ secrets.CHARMHUB_TOKEN }}
         run: |
-          cp -r ./charms/${{ matrix.charm.target }}/* .
-
-      - name: Build charm and upload charm and image resource to Charmhub
-        uses: canonical/charming-actions/upload-charm@2.7.0
-        with:
-          credentials: "${{ secrets.CHARMHUB_TOKEN }}"
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          pull-image: "false"
-          channel: ${{ matrix.charm.track }}
-          destructive-mode: "false"
+          for charm in *.charm; do
+            echo "Uploading and releasing ${charm}"
+            charmcraft upload "${charm}" --release latest/edge
+          done

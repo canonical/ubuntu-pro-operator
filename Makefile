@@ -1,16 +1,14 @@
 CLEANUP_FILES = charmcraft.yaml
 
-.PHONY: all ubuntu-pro ubuntu-pro_noble legacy clean
-
-all: ubuntu-pro ubuntu-pro_noble
+.PHONY: ubuntu-pro ubuntu-pro_old ubuntu-advantage ubuntu-advantage_noble legacy clean
 
 ubuntu-pro:
 	cp charms/ubuntu-pro/* .
 	charmcraft pack
 	rm -f $(CLEANUP_FILES)
-	
-ubuntu-pro_noble:
-	cp charms/ubuntu-pro_noble/* .
+
+ubuntu-pro_old:
+	cp charms/ubuntu-pro_old/* .
 	charmcraft pack
 	rm -f $(CLEANUP_FILES)
 
@@ -29,4 +27,3 @@ legacy:
 
 clean:
 	rm -f $(CLEANUP_FILES)
-	

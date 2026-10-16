@@ -1,1 +1,29 @@
-ops >= 1.5.0, < 2.0
+# Dependency closure for the charm.
+#
+# The old track (charms/ubuntu-pro_old, built with the charmcraft 3.x `charm`
+# plugin) installs transitive dependencies automatically, so pinning `ops` is
+# enough there. The current multi-base track (charms/ubuntu-pro, built with the
+# charmcraft 4.x `python` plugin) installs with `pip install --no-deps`, so for
+# that track this file must list the complete runtime dependency closure.
+#
+# The `ops` pin is split by Python version because the two tracks run on
+# different interpreters and no single `ops` release spans them:
+#   * Old bases 16.04-22.04 run Python 3.5-3.10 and need ops 1.x
+#     (ops 2.x requires Python >= 3.8).
+#   * Current bases 24.04 + 26.04 run Python 3.12 / 3.14 and need ops 2.x:
+#     ops 1.x imports the `cgi` module, which Python 3.13 removed, so it cannot
+#     even be imported on Ubuntu 26.04 (Python 3.14).
+# pip evaluates the markers against each build base's interpreter, so a single
+# file serves both tracks.
+
+# Old track (Python < 3.12): the charm plugin resolves transitive deps itself.
+ops >= 1.5.0, < 2.0 ; python_version < "3.12"
+
+# Current track (Python >= 3.12): the python plugin uses --no-deps, so the full
+# runtime closure of ops 2.x is listed explicitly. This closure is identical on
+# Python 3.12 (24.04) and 3.14 (26.04).
+ops >= 2.17, < 3.0 ; python_version >= "3.12"
+PyYAML >= 6.0 ; python_version >= "3.12"
+websocket-client >= 1.0, < 2.0 ; python_version >= "3.12"
+opentelemetry-api >= 1.0, < 2.0 ; python_version >= "3.12"
+typing-extensions >= 4.0 ; python_version >= "3.12"

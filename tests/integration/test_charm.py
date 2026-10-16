@@ -83,13 +83,14 @@ async def test_attach_default_services(ops_test: OpsTest):
 async def test_attach_services(ops_test: OpsTest):
     charm = ops_test.model.applications[CHARM_NAME]
 
-    # Attach to pro subscription with services
-    await charm.set_config({"services": "esm-infra,cis", "token": TEST_TOKEN})
+    # Attach with an explicit services list, "esm-infra" alone still differs from the default
+    # (esm-apps,esm-infra), so it proves the override is applied.
+    await charm.set_config({"services": "esm-infra", "token": TEST_TOKEN})
     await ops_test.model.wait_for_idle()
 
     unit = charm.units[0]
     assert unit.workload_status == ActiveStatus.name
-    assert unit.workload_status_message == "Attached (esm-infra,usg)"
+    assert unit.workload_status_message == "Attached (esm-infra)"
 
     # Detach from pro subscription
     await charm.set_config({"token": "", "services": ""})

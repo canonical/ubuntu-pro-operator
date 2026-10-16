@@ -14,7 +14,13 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        build-target: [ubuntu-pro, ubuntu-pro_noble]
+        include:
+          # Current multi-base track (24.04 + 26.04) needs charmcraft 4.x.
+          - build-target: ubuntu-pro
+            charmcraft-channel: 4.x/stable
+          # Old track (bases: 16.04-22.04) stays on charmcraft 3.x.
+          - build-target: ubuntu-pro_old
+            charmcraft-channel: 3.x/stable
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,7 +31,7 @@ jobs:
           channel: latest/stable
 
       - name: Install charmcraft
-        run: sudo snap install charmcraft --classic --channel=3.x/stable
+        run: sudo snap install charmcraft --classic --channel=${{ matrix.charmcraft-channel }}
 
       - name: Build charms
         run: make ${{ matrix.build-target }}
