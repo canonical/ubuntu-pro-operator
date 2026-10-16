@@ -1,0 +1,16 @@
+clients:
+  secscan: {}
+
+# One entry per base and channel that we build and publish to Charmhub.
+artifacts:
+  - name: ubuntu-pro-24.04-edge
+    charm: ubuntu-pro
+    type: charm
+    channel: latest/edge
+    base: ubuntu@24.04
+
+  - name: ubuntu-pro-24.04-stable
+    charm: ubuntu-pro
+    type: charm
+    channel: latest/stable
+    base: ubuntu@24.04
