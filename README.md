@@ -15,8 +15,8 @@ Be sure to replace `<token>` with a valid value from
 
 ```
 juju deploy ubuntu
-juju deploy ubuntu-advantage --config token=<token>
-juju add-relation ubuntu ubuntu-advantage
+juju deploy ubuntu-pro --config token=<token>
+juju add-relation ubuntu ubuntu-pro
 ```
 
 ## Development
