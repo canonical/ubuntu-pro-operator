@@ -27,13 +27,20 @@ You will also need the following environment variables set:
 
 ```bash
 export PRO_CHARM_BUILD_TARGET="ubuntu-pro"  # or ubuntu-pro_old, ubuntu-advantage, ubuntu-advantage_noble
+export PRO_CHARM_TEST_BASE="ubuntu@24.04"   # a base the build target supports
 export PRO_CHARM_TEST_TOKEN="your-ubuntu-pro-token"
-export PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN="your-livepatch-staging-token"
+export PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN="your-livepatch-staging-token"  # optional
 ```
 
-Then you can run the integration tests with `tox run -e integration`.
+Then you can run the integration tests with `tox run -e integration`. Without `PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN`, the test that enables Livepatch against the staging server is skipped.
 
-Building the `ubuntu-pro` target produces one `.charm` file per base, so when testing that target you need to select the base artifact to deploy and deploy the principal on the matching series.
+The tests build the charm for `PRO_CHARM_BUILD_TARGET` and deploy it, with the `ubuntu` principal, on `PRO_CHARM_TEST_BASE`.
+
+### Integration tests on pull requests
+
+You don't need the tokens to contribute: the integration tests also run on every pull request, against `ubuntu-pro` on 24.04 and 26.04 and `ubuntu-pro_old` on 20.04 and 22.04. Because they use real Ubuntu Pro tokens, they start only after a maintainer has reviewed your changes, so the check shows as waiting until then.
+
+16.04 and 18.04 are not tested, because Juju 3 cannot deploy charms on them. If your change affects those releases, say how you tested it in the pull request.
 
 ## Uploading to Charmhub
 

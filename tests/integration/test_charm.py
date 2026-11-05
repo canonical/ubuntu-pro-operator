@@ -14,10 +14,15 @@ BUILD_TARGET = os.environ.get("PRO_CHARM_BUILD_TARGET")
 assert BUILD_TARGET is not None
 CHARM_NAME = BUILD_TARGET.split("_")[0]
 
+# The base both the principal and the subordinate are deployed on, e.g. "ubuntu@24.04".
+# It must be one of the bases the build target supports.
+TEST_BASE = os.environ.get("PRO_CHARM_TEST_BASE")
+assert TEST_BASE is not None
+
 TEST_TOKEN = os.environ.get("PRO_CHARM_TEST_TOKEN")
 assert TEST_TOKEN is not None
+# Optional: tests that need a real Livepatch staging token are skipped without one.
 TEST_LIVEPATCH_TOKEN = os.environ.get("PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN")
-assert TEST_LIVEPATCH_TOKEN is not None
 
 
 @contextmanager
@@ -33,9 +38,15 @@ def configure_build(target):
 @pytest.mark.abort_on_fail
 async def test_build_and_deploy(ops_test: OpsTest):
     with configure_build(BUILD_TARGET):
-        charm = await ops_test.build_charm(".")
-    await ops_test.model.deploy("ubuntu")
-    await ops_test.model.deploy(charm, num_units=0)
+        charms = await ops_test.build_charm(".", return_all=True)
+    # Packed charm names list the bases they run on (e.g. ubuntu-pro_ubuntu-24.04-amd64.charm);
+    # a target that packs a single charm without them only has that one.
+    version = TEST_BASE.split("@")[1]
+    charm = next((c for c in charms if f"ubuntu-{version}-" in c.name), charms[0])
+    # Deploy with the Juju CLI rather than python-libjuju: libjuju resolves the charm for the
+    # model's default base before applying the requested one, and does not know 26.04 at all.
+    await ops_test.juju("deploy", "ubuntu", "--base", TEST_BASE, check=True)
+    await ops_test.juju("deploy", charm, "--base", TEST_BASE, check=True)
     await ops_test.model.add_relation(
         "ubuntu",
         CHARM_NAME,
@@ -140,6 +151,9 @@ async def test_empty_livepatch_config(ops_test: OpsTest):
     assert unit.workload_status == BlockedStatus.name
 
 
+@pytest.mark.skipif(
+    not TEST_LIVEPATCH_TOKEN, reason="PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN is not set"
+)
 async def test_livepatch_server_success(ops_test: OpsTest):
     charm = ops_test.model.applications[CHARM_NAME]
 
