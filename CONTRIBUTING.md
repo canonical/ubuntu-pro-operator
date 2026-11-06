@@ -23,18 +23,16 @@ Make sure the right charmcraft is installed first: `make ubuntu-pro` requires ch
 
 The integration tests require a local juju environment that you can set up by running `juju bootstrap localhost dev-controller`. The juju bootstrap controller will use lxd on your machine and keeps its state separately. If juju's state gets out of sync with the lxd state (e.g. if you use lxd to delete a juju-controlled container), you can run `rm -rf ~/.local/share/juju/` to wipe the juju state before starting over.
 
-You will also need the following environment variables set:
+The tests deploy a charm you have already built, so first build the target you want to test (see above), for example `make ubuntu-pro`. Then set the following environment variables:
 
 ```bash
-export PRO_CHARM_BUILD_TARGET="ubuntu-pro"  # or ubuntu-pro_old, ubuntu-advantage, ubuntu-advantage_noble
-export PRO_CHARM_TEST_BASE="ubuntu@24.04"   # a base the build target supports
+export CHARM_PATH="$PWD/ubuntu-pro_ubuntu-24.04-amd64.charm"  # the .charm file to test
+export PRO_CHARM_TEST_BASE="ubuntu@24.04"   # a base that charm supports
 export PRO_CHARM_TEST_TOKEN="your-ubuntu-pro-token"
 export PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN="your-livepatch-staging-token"  # optional
 ```
 
-Then you can run the integration tests with `tox run -e integration`. Without `PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN`, the test that enables Livepatch against the staging server is skipped.
-
-The tests build the charm for `PRO_CHARM_BUILD_TARGET` and deploy it, with the `ubuntu` principal, on `PRO_CHARM_TEST_BASE`.
+Then you can run the integration tests with `tox run -e integration`. Without `PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN`, the test that enables Livepatch against the staging server is skipped. To keep the test model around afterwards for debugging, add `-- --no-juju-teardown`.
 
 ### Integration tests on pull requests
 
