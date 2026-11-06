@@ -1,0 +1,65 @@
+name: Integration Tests
+
+# pull_request_target gives fork PRs the test tokens; the "integration" environment must require
+# reviewers, so no PR code runs with them until a maintainer approves.
+on:
+  pull_request_target:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: Integration ${{ matrix.build-target }} on ${{ matrix.base }}
+    runs-on: ubuntu-latest
+    environment: integration
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every LTS each charm targets that Juju 3 can deploy (see CONTRIBUTING.md).
+        include:
+          - build-target: ubuntu-pro
+            charmcraft-channel: 4.x/stable
+            base: ubuntu@24.04
+            charm: ubuntu-pro_ubuntu-24.04-amd64.charm
+          - build-target: ubuntu-pro
+            charmcraft-channel: 4.x/stable
+            base: ubuntu@26.04
+            charm: ubuntu-pro_ubuntu-26.04-amd64.charm
+          - build-target: ubuntu-pro_old
+            charmcraft-channel: 3.x/stable
+            base: ubuntu@20.04
+            charm: ubuntu-pro_ubuntu-16.04-amd64_ubuntu-18.04-amd64_ubuntu-20.04-amd64_ubuntu-22.04-amd64.charm
+          - build-target: ubuntu-pro_old
+            charmcraft-channel: 3.x/stable
+            base: ubuntu@22.04
+            charm: ubuntu-pro_ubuntu-16.04-amd64_ubuntu-18.04-amd64_ubuntu-20.04-amd64_ubuntu-22.04-amd64.charm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Setup Juju
+        uses: charmed-kubernetes/actions-operator@d8217ad61c15f746727a9d41563c13e9b9fe56e3
+        with:
+          provider: lxd
+          juju-channel: 3.6/stable
+          charmcraft-channel: ${{ matrix.charmcraft-channel }}
+
+      - name: Pack charm
+        run: make ${{ matrix.build-target }}
+
+      - name: Run integration tests
+        env:
+          CHARM_PATH: ${{ github.workspace }}/${{ matrix.charm }}
+          PRO_CHARM_TEST_BASE: ${{ matrix.base }}
+          PRO_CHARM_TEST_TOKEN: ${{ secrets.PRO_CHARM_TEST_TOKEN }}
+          PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN: ${{ secrets.PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN }}
+        run: tox run -e integration
