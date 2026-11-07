@@ -43,8 +43,15 @@ jobs:
       - name: Upload and release every packed artifact
         env:
           CHARMCRAFT_AUTH: ${{ secrets.CHARMHUB_TOKEN }}
+          # charmcraft 4.x crashes with "Project not configured yet" when
+          # `charmcraft upload` runs outside a directory containing
+          # charmcraft.yaml (canonical/charmcraft#2492). The Makefile removes
+          # charmcraft.yaml after packing, so restore it here before uploading.
+          # (charmcraft 3.x is unaffected; restoring the file is harmless there.)
         run: |
+          cp charms/${{ matrix.build-target }}/charmcraft.yaml .
           for charm in *.charm; do
             echo "Uploading and releasing ${charm}"
             charmcraft upload "${charm}" --release latest/edge
           done
+          rm -f charmcraft.yaml
