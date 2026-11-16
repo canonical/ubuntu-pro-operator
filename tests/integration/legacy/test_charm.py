@@ -1,16 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Integration tests for the Ubuntu Pro charm on Juju 2.9.
-
-Juju 3 cannot deploy charms on 16.04 or 18.04, so tests/integration (Jubilant, Juju 3) cannot cover
-them. This is a point-in-time snapshot of the pytest-operator suite that predates it, which runs
-against a Juju 2.9 controller. It is maintained by hand: when the charm's behaviour or
-configuration changes, update it alongside tests/integration/test_charm.py.
-
-Only 18.04 is tested. The charm does not install on 16.04: Python 3.5 breaks ops 1.x's config
-mapping (typing.Mapping subclasses have no get()).
-"""
+"""Integration tests for 18.04 on Juju 2.9. Keep in step with tests/integration/test_charm.py."""
 
 import json
 import os
