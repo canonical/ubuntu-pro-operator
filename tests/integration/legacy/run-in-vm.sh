@@ -36,10 +36,12 @@ fi
 lxc exec "$VM_NAME" -- rm -rf /root/repo
 lxc exec "$VM_NAME" -- mkdir -p /root/repo
 git -C "$REPO_ROOT" archive HEAD | lxc exec "$VM_NAME" -- tar -x -C /root/repo
-lxc file push "$CHARM_PATH" "$VM_NAME/root/repo/charm.charm"
+# The tests derive the application name from the charm file name, so keep it.
+CHARM_FILE="$(basename "$CHARM_PATH")"
+lxc file push "$CHARM_PATH" "$VM_NAME/root/repo/$CHARM_FILE"
 
 lxc exec "$VM_NAME" --cwd /root/repo \
-    --env CHARM_PATH=/root/repo/charm.charm \
+    --env CHARM_PATH="/root/repo/$CHARM_FILE" \
     --env PRO_CHARM_TEST_SERIES=bionic \
     --env PRO_CHARM_TEST_TOKEN="$PRO_CHARM_TEST_TOKEN" \
     --env PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN="${PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN:-}" \
