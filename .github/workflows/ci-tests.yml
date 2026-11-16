@@ -6,6 +6,8 @@ on:
 jobs:
   test:
     name: Run Tests
+    # Pinned to 24.04 (Python 3.12): unit-old uses ops 1.x, which imports `cgi`, removed in
+    # Python 3.13, so it breaks on newer runners such as ubuntu-latest (26.04).
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
