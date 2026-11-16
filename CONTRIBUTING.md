@@ -49,9 +49,9 @@ CHARM_PATH="$PWD/ubuntu-pro_ubuntu-16.04-amd64_ubuntu-18.04-amd64_ubuntu-20.04-a
 PRO_CHARM_TEST_TOKEN=<token> tests/integration/legacy/run-in-vm.sh
 ```
 
-Set `KEEP_VM=1` to keep the VM for reuse. On pull requests it runs as a separate CI job on a pinned `ubuntu-22.04` runner, because Juju 2.9 doesn't run on newer images; that pin will need revisiting when the image rotates out.
+Set `KEEP_VM=1` to keep the VM for reuse. It also runs in CI on pull requests.
 
-16.04 is not tested: the charm does not currently install there, because Python 3.5 breaks `ops` 1.x's config mapping (`config.get` is missing).
+16.04 is not tested in CI.
 
 ## Uploading to Charmhub
 
