@@ -68,3 +68,34 @@ jobs:
           PRO_CHARM_TEST_TOKEN: ${{ secrets.PRO_CHARM_TEST_TOKEN }}
           PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN: ${{ secrets.PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN }}
         run: tox run -e integration
+
+  # Juju 3 cannot deploy on 18.04, so this uses Juju 2.9. Juju 2.9 isn't supported on 26.04
+  # (and so not on ubuntu-latest), hence the pinned 22.04 runner. Revisit when that image rotates out.
+  integration-legacy:
+    name: Integration ubuntu-pro_old on 18.04 (Juju 2.9)
+    runs-on: ubuntu-22.04
+    environment: integration
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Setup Juju
+        uses: charmed-kubernetes/actions-operator@d8217ad61c15f746727a9d41563c13e9b9fe56e3
+        with:
+          provider: lxd
+          juju-channel: 2.9/stable
+          charmcraft-channel: 3.x/stable
+
+      - name: Pack charm
+        run: make ubuntu-pro_old
+
+      - name: Run integration tests
+        env:
+          CHARM_PATH: ${{ github.workspace }}/ubuntu-pro_ubuntu-16.04-amd64_ubuntu-18.04-amd64_ubuntu-20.04-amd64_ubuntu-22.04-amd64.charm
+          PRO_CHARM_TEST_SERIES: bionic
+          PRO_CHARM_TEST_TOKEN: ${{ secrets.PRO_CHARM_TEST_TOKEN }}
+          PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN: ${{ secrets.PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN }}
+        run: tox run -e integration-legacy
