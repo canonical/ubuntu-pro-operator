@@ -30,6 +30,13 @@ ACTIVE = "active"
 BLOCKED = "blocked"
 
 
+async def run_on_unit(ops_test: OpsTest, unit, command: str) -> str:
+    # libjuju's Unit.run() + Action.wait() hangs on Juju 2.9, so use the CLI.
+    returncode, stdout, stderr = await ops_test.juju("run", "--unit", unit.name, "--", command)
+    assert returncode == 0, f"{command!r} failed: {stdout} {stderr}"
+    return stdout
+
+
 @pytest.mark.abort_on_fail
 async def test_deploy(ops_test: OpsTest):
     await ops_test.model.deploy("ubuntu", series=TEST_SERIES)
@@ -99,11 +106,9 @@ async def test_detach_before_attach(ops_test: OpsTest):
 
     # Attach to pro subscription with services "manually" to get the unit
     # in a weird state to test the detach before attach logic.
-    action = await unit.run(f"sudo pro attach {TEST_TOKEN} --no-auto-enable")
-    await action.wait()
-    action = await unit.run("sudo pro api u.pro.status.is_attached.v1")
-    await action.wait()
-    assert json.loads(action.results["stdout"])["data"]["attributes"]["is_attached"] is True
+    await run_on_unit(ops_test, unit, f"sudo pro attach {TEST_TOKEN} --no-auto-enable")
+    stdout = await run_on_unit(ops_test, unit, "sudo pro api u.pro.status.is_attached.v1")
+    assert json.loads(stdout)["data"]["attributes"]["is_attached"] is True
 
     # Attach to pro subscription with services
     # This will detach the existing attachment and then attach.
@@ -219,9 +224,7 @@ async def test_ua_url_configs(ops_test: OpsTest, config_key: str, test_value: st
     await charm.set_config({config_key: test_value})
     await ops_test.model.wait_for_idle(status="active", timeout=600)
 
-    action = await unit.run("pro config show")
-    await action.wait()
-    stdout = action.results.get("stdout", "")
+    stdout = await run_on_unit(ops_test, unit, "pro config show")
     assert config_key in stdout
     assert test_value in stdout
 
@@ -229,6 +232,4 @@ async def test_ua_url_configs(ops_test: OpsTest, config_key: str, test_value: st
     await charm.set_config({config_key: ""})
     await ops_test.model.wait_for_idle(status="active")
 
-    action = await unit.run("pro config show")
-    await action.wait()
-    assert test_value not in action.results.get("stdout", "")
+    assert test_value not in await run_on_unit(ops_test, unit, "pro config show")
