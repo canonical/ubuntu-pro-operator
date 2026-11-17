@@ -40,13 +40,13 @@ You don't need the tokens to contribute: the integration tests also run on every
 
 ### Integration tests for 18.04 (Juju 2.9)
 
-Juju 3 cannot deploy charms on 18.04, so `tests/integration/legacy` holds a separate suite that targets a Juju 2.9 controller. It is a snapshot of the older pytest-operator tests and is maintained by hand: when you change the charm's behaviour or configuration, update both suites.
+Juju 3 cannot deploy charms on 18.04, so `tests/integration/juju29` holds a separate suite that targets a Juju 2.9 controller. It is a snapshot of the older pytest-operator tests and is maintained by hand: when you change the charm's behaviour or configuration, update both suites.
 
 To keep Juju 2.9 away from your own Juju, run it in a throwaway LXD VM with the `ubuntu-pro_old` charm you built:
 
 ```bash
 CHARM_PATH="$PWD/ubuntu-pro_ubuntu-16.04-amd64_ubuntu-18.04-amd64_ubuntu-20.04-amd64_ubuntu-22.04-amd64.charm" \
-PRO_CHARM_TEST_TOKEN=<token> tests/integration/legacy/run-in-vm.sh
+PRO_CHARM_TEST_TOKEN=<token> tests/integration/juju29/run-in-vm.sh
 ```
 
 Set `KEEP_VM=1` to keep the VM for reuse. It also runs in CI on pull requests.

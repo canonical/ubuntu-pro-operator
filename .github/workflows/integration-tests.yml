@@ -71,7 +71,7 @@ jobs:
 
   # Juju 3 cannot deploy on 18.04, so this uses Juju 2.9. Juju 2.9 isn't supported on 26.04
   # (and so not on ubuntu-latest), hence the pinned 22.04 runner. Revisit when that image rotates out.
-  integration-legacy:
+  integration-juju29:
     name: Integration ubuntu-pro_old on 18.04 (Juju 2.9)
     runs-on: ubuntu-22.04
     environment: integration
@@ -98,4 +98,4 @@ jobs:
           PRO_CHARM_TEST_SERIES: bionic
           PRO_CHARM_TEST_TOKEN: ${{ secrets.PRO_CHARM_TEST_TOKEN }}
           PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN: ${{ secrets.PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN }}
-        run: tox run -e integration-legacy
+        run: tox run -e integration-juju29

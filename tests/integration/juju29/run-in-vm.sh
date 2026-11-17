@@ -45,7 +45,7 @@ lxc exec "$VM_NAME" --cwd /root/repo \
     --env PRO_CHARM_TEST_SERIES=bionic \
     --env PRO_CHARM_TEST_TOKEN="$PRO_CHARM_TEST_TOKEN" \
     --env PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN="${PRO_CHARM_TEST_LIVEPATCH_STAGING_TOKEN:-}" \
-    -- /root/toxenv/bin/tox run -e integration-legacy
+    -- /root/toxenv/bin/tox run -e integration-juju29
 
 if [ -z "${KEEP_VM:-}" ]; then
     lxc delete --force "$VM_NAME"
