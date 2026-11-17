@@ -36,7 +36,9 @@ Then you can run the integration tests with `tox run -e integration`. Without `P
 
 ### Integration tests on pull requests
 
-You don't need the tokens to contribute: the integration tests also run on every pull request, against `ubuntu-pro` on 24.04 and 26.04 and `ubuntu-pro_old` on 20.04 and 22.04. Because they use real Ubuntu Pro tokens, they start only after a maintainer has reviewed your changes, so the check shows as waiting until then.
+You don't need the tokens to contribute: the integration tests also run on every pull request, against `ubuntu-pro` on 24.04 and 26.04, and `ubuntu-pro_old` on 18.04 (on Juju 2.9, see below), 20.04 and 22.04. Because they use real Ubuntu Pro tokens, they start only after a maintainer has reviewed your changes, so the check shows as waiting until then.
+
+16.04 is not tested. If your change affects it, say how you tested it in the pull request.
 
 ### Integration tests for 18.04 (Juju 2.9)
 
@@ -49,9 +51,7 @@ CHARM_PATH="$PWD/ubuntu-pro_ubuntu-16.04-amd64_ubuntu-18.04-amd64_ubuntu-20.04-a
 PRO_CHARM_TEST_TOKEN=<token> tests/integration/juju29/run-in-vm.sh
 ```
 
-Set `KEEP_VM=1` to keep the VM for reuse. It also runs in CI on pull requests.
-
-16.04 is not tested in CI.
+Set `KEEP_VM=1` to keep the VM for reuse.
 
 ## Uploading to Charmhub
 
