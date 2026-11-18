@@ -35,7 +35,11 @@ fi
 
 lxc exec "$VM_NAME" -- rm -rf /root/repo
 lxc exec "$VM_NAME" -- mkdir -p /root/repo
-git -C "$REPO_ROOT" archive HEAD | lxc exec "$VM_NAME" -- tar -x -C /root/repo
+# Ship the working tree (including uncommitted changes), not just HEAD. Deleted-but-unstaged
+# files are skipped by --ignore-failed-read.
+git -C "$REPO_ROOT" ls-files -z --cached --others --exclude-standard \
+    | tar -c -C "$REPO_ROOT" --ignore-failed-read --null -T - \
+    | lxc exec "$VM_NAME" -- tar -x -C /root/repo
 # The tests derive the application name from the charm file name, so keep it.
 CHARM_FILE="$(basename "$CHARM_PATH")"
 lxc file push "$CHARM_PATH" "$VM_NAME/root/repo/$CHARM_FILE"
