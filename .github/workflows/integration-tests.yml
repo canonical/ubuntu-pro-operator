@@ -5,12 +5,17 @@ name: Integration Tests
 on:
   pull_request_target:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to test
+        default: main
 
 permissions:
   contents: read
 
 concurrency:
-  group: integration-${{ github.event.pull_request.number }}
+  group: integration-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -43,7 +48,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || inputs.ref }}
           persist-credentials: false
 
       - name: Setup Juju
