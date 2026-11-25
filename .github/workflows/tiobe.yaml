@@ -10,7 +10,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, "${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch')) && 'large-tiobe' || 'large' }}"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install dependencies
         run: |
@@ -34,7 +34,7 @@ jobs:
 
       - name: TICS GitHub Action
         if: ${{ (github.event_name == 'schedule') || (github.event_name == 'workflow_dispatch') }}
-        uses: tiobe/tics-github-action@v3
+        uses: tiobe/tics-github-action@016a4d79f3027fe7b4a2901619a58c745ab7cadf # v3
         with:
           mode: qserver
           project: ubuntu-pro-operator
