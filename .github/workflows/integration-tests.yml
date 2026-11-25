@@ -50,6 +50,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || inputs.ref }}
           persist-credentials: false
+          # Intentional: the "integration" environment requires reviewer approval before this job
+          # starts, so fork code only runs once a maintainer has reviewed it.
+          allow-unsafe-pr-checkout: true
 
       - name: Setup Juju
         uses: charmed-kubernetes/actions-operator@d8217ad61c15f746727a9d41563c13e9b9fe56e3
@@ -81,6 +84,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || inputs.ref }}
           persist-credentials: false
+          # Intentional: the "integration" environment requires reviewer approval before this job
+          # starts, so fork code only runs once a maintainer has reviewed it.
+          allow-unsafe-pr-checkout: true
 
       - name: Setup Juju
         uses: charmed-kubernetes/actions-operator@d8217ad61c15f746727a9d41563c13e9b9fe56e3
